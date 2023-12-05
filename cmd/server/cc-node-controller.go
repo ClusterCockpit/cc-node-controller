@@ -24,10 +24,10 @@ type NatsConnection struct {
 }
 
 type NatsConfig struct {
-	Hostname      string
-	Port          int
+	Hostname      string `json:"hostname"`
+	Port          int    `json:"port"`
+	SubjectPrefix string `json:"subject_prefix"`
 	subject       string
-	SubjectPrefix string
 }
 
 func ConnectNats(config NatsConfig) (NatsConnection, error) {
