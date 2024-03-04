@@ -18,7 +18,15 @@ func OpenLikwidLibrary() error {
 	}
 	err := lib.Open()
 	if err != nil {
-		return fmt.Errorf("error opening %s: %v", LIKWID_LIB_NAME, err)
+		return fmt.Errorf("error opening %s: %v", lib.Name, err)
+	}
+	err = lib.Lookup("likwid_getSysFeaturesSupport")
+	if err != nil {
+		return fmt.Errorf("LIKWID library %s version 5.3+ required: %v", lib.Name, err)
+	}
+	err = lib.Lookup("sysFeatures_init")
+	if err != nil {
+		return fmt.Errorf("LIKWID library %s built without SysFeatures support: %v", lib.Name, err)
 	}
 	return nil
 }
