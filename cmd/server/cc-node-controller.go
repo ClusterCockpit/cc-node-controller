@@ -3,6 +3,7 @@ package main
 import (
 	"cc-node-controller-simple/pkg/sysfeatures"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -10,7 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
+	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
 	ccmetric "github.com/ClusterCockpit/cc-metric-collector/pkg/ccMetric"
 	lp "github.com/influxdata/line-protocol" // MIT license
 
@@ -18,33 +21,41 @@ import (
 )
 
 type NatsConnection struct {
-	conn *nats.Conn
-	sub  *nats.Subscription
-	ch   chan *nats.Msg
+	conn       *nats.Conn
+	sub        *nats.Subscription
+	ch         chan *nats.Msg
+	outSubject string
 }
 
 type NatsConfig struct {
-	Hostname      string `json:"hostname"`
-	Port          int    `json:"port"`
-	SubjectPrefix string `json:"subject_prefix"`
-	subject       string
+	Hostname            string `json:"hostname"`
+	Port                int    `json:"port"`
+	Username            string `json:"username,omitempty"`
+	Password            string `json:"password,omitempty"`
+	InputSubjectPrefix  string `json:"input_subject_prefix,omitempty"`
+	InputSubject        string `json:"input_subject,omitempty"`
+	OutputSubjectPrefix string `json:"output_subject_prefix,omitempty"`
+	OutputSubject       string `json:"output_subject,omitempty"`
+	subject             string
+	outSubject          string
 }
 
 func ConnectNats(config NatsConfig) (NatsConnection, error) {
 	c := NatsConnection{
-		conn: nil,
-		sub:  nil,
-		ch:   nil,
+		conn:       nil,
+		sub:        nil,
+		ch:         nil,
+		outSubject: config.outSubject,
 	}
 	uri := fmt.Sprintf("%s:%d", config.Hostname, config.Port)
-	fmt.Println("connecting to", uri)
+	cclog.ComponentDebug("NATS", "connecting to", uri)
 	conn, err := nats.Connect(uri)
 	if err != nil {
 		return c, err
 	}
 
 	ch := make(chan *nats.Msg)
-	fmt.Println("subscribing to", config.subject)
+	cclog.ComponentDebug("NATS", "subscribing to", config.subject)
 	sub, err := conn.ChanSubscribe(config.subject, ch)
 	if err != nil {
 		return c, err
@@ -55,8 +66,13 @@ func ConnectNats(config NatsConfig) (NatsConnection, error) {
 	return c, nil
 }
 
+func PublishNats(conn NatsConnection, event ccmetric.CCMetric) error {
+	cclog.ComponentDebug("NATS", "Publish ", conn.outSubject, ": ", event.String())
+	return conn.conn.Publish(conn.outSubject, []byte(event.String()))
+}
+
 func DisconnectNats(conn NatsConnection) {
-	fmt.Println("disconnecting ...")
+	cclog.ComponentDebug("NATS", "disconnecting ...")
 	conn.sub.Unsubscribe()
 	close(conn.ch)
 	conn.conn.Close()
@@ -75,55 +91,80 @@ func FromLineProtocol(metric string) (ccmetric.CCMetric, error) {
 	return cc, nil
 }
 
-func ProcessCommand(metric ccmetric.CCMetric) string {
-	if metric.HasTag("knob") && metric.HasTag("type") && metric.HasTag("method") {
-		fmt.Println("Processing", metric)
-		t, ok := metric.GetTag("type")
-		if !ok {
-			return ""
-		}
-		stid, ok := metric.GetTag("type-id")
-		if !ok {
-			return ""
-		}
-		tid, err := strconv.ParseInt(stid, 10, 64)
-		if err != nil {
-			return ""
-		}
-		knob, ok := metric.GetTag("knob")
-		if !ok {
-			return ""
-		}
-		method, ok := metric.GetTag("method")
-		if !ok {
-			return ""
-		}
-		if method == "PUT" {
-			value, ok := metric.GetField("value")
-			if !ok {
-				return ""
-			}
-			v := fmt.Sprintf("%d", value)
+func ProcessCommand(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 
-			dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
-			if err != nil {
-				return ""
-			}
-			sysfeatures.SysFeaturesSetDevice(knob, dev, v)
-		} else {
-			dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
-			if err != nil {
-				return ""
-			}
-			value, err := sysfeatures.SysFeaturesGetDevice(knob, dev)
-			if err != nil {
-				return ""
-			}
-			fmt.Println(knob, value)
-			return value
+	createOutput := func(errorString string, tags map[string]string) (ccmetric.CCMetric, error) {
+		resp, err := ccmetric.New("cc-node-controller", tags, map[string]string{}, map[string]interface{}{"value": errorString}, time.Now())
+		if err == nil {
+			resp.AddTag("level", "ERROR")
+			return resp, errors.New(errorString)
+		}
+		return nil, fmt.Errorf("%s and cannot send response", errorString)
+	}
+
+	var tid int64 = 0
+	var err error = nil
+	cclog.ComponentDebug("Sysfeatures", "Processing", input)
+	t, ok := input.GetTag("type")
+	if !ok {
+		return createOutput(fmt.Sprintf("No 'type' tag in %s", input), input.Tags())
+	}
+	if t != "node" {
+		stid, ok := input.GetTag("type-id")
+		if !ok {
+			return createOutput(fmt.Sprintf("No 'type-id' tag in %s", input), input.Tags())
+		}
+		tid, err = strconv.ParseInt(stid, 10, 64)
+		if err != nil {
+			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s", input), input.Tags())
 		}
 	}
-	return ""
+	knob, ok := input.GetTag("knob")
+	if !ok {
+		return createOutput(fmt.Sprintf("No 'knob' tag in %s", input), input.Tags())
+	}
+	method, ok := input.GetTag("method")
+	if !ok {
+		return createOutput(fmt.Sprintf("No 'method' tag in %s", input), input.Tags())
+	}
+	if method != "PUT" && method != "GET" {
+		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input), input.Tags())
+	}
+	if method == "PUT" {
+		value, ok := input.GetField("value")
+		if !ok {
+			return createOutput(fmt.Sprintf("No 'value' field in %s", input), input.Tags())
+		}
+		v := fmt.Sprintf("%d", value)
+		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
+		dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
+		if err != nil {
+			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid), input.Tags())
+		}
+		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", t, " ", int(tid), "to", v)
+		err = sysfeatures.SysFeaturesSetDevice(knob, dev, v)
+		if err != nil {
+			return createOutput(fmt.Sprintf("Failed to set %s=%s for device %s%d", knob, v, t, tid), input.Tags())
+		}
+	} else if method == "GET" {
+		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
+		dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
+		if err != nil {
+			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid), input.Tags())
+		}
+		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", t, " ", int(tid))
+		value, err := sysfeatures.SysFeaturesGetDevice(knob, dev)
+		if err != nil {
+			return createOutput(fmt.Sprintf("Failed to get %s for device %s%d", knob, t, tid), input.Tags())
+		}
+		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", t, " ", int(tid), "returned", value)
+		resp, err := createOutput(value, input.Tags())
+		if err == nil {
+			resp.AddTag("level", "INFO")
+		}
+		return resp, err
+	}
+	return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input), input.Tags())
 }
 
 func ReadCli() map[string]string {
@@ -145,12 +186,18 @@ func ReadCli() map[string]string {
 
 func LoadConfiguration(filename string) (NatsConfig, error) {
 	var c NatsConfig = NatsConfig{
-		Hostname:      "",
-		Port:          0,
-		SubjectPrefix: "",
+		Hostname:            "",
+		Port:                0,
+		InputSubjectPrefix:  "",
+		InputSubject:        "",
+		OutputSubjectPrefix: "",
+		OutputSubject:       "",
+		subject:             "",
+		outSubject:          "",
 	}
 	configFile, err := os.Open(filename)
 	if err != nil {
+		cclog.Error(err.Error())
 		return c, err
 	}
 	defer configFile.Close()
@@ -171,59 +218,101 @@ func real_main() int {
 	if len(cli_opts["configfile"]) == 0 {
 		cli_opts["configfile"] = "./config.json"
 	}
+	if cli_opts["debug"] == "true" {
+		cclog.SetDebug()
+	}
+	cclog.SetOutput(cli_opts["logfile"])
 
 	config, err := LoadConfiguration(cli_opts["configfile"])
 	if err != nil {
-		fmt.Println(err.Error())
+		cclog.Error(err.Error())
 		return 1
 	}
-	if len(config.SubjectPrefix) > 0 {
-		config.subject = fmt.Sprintf("%s/%s", config.SubjectPrefix, hostname)
+	if len(config.InputSubject) > 0 {
+		config.subject = config.InputSubject
 	} else {
-		config.subject = hostname
+		if len(config.InputSubjectPrefix) > 0 {
+			config.subject = fmt.Sprintf("%s/%s", config.InputSubjectPrefix, hostname)
+		} else {
+			config.subject = hostname
+		}
 	}
-
+	cclog.ComponentDebug("CONFIG", "Using input subject", config.subject)
+	if len(config.OutputSubject) > 0 {
+		config.outSubject = config.OutputSubject
+	} else {
+		if len(config.OutputSubjectPrefix) > 0 {
+			config.outSubject = fmt.Sprintf("%s/%s", config.OutputSubjectPrefix, hostname)
+		} else {
+			config.outSubject = fmt.Sprintf("%s-out", hostname)
+		}
+	}
+	cclog.ComponentDebug("CONFIG", "Using output subject", config.outSubject)
+	if len(config.subject) == 0 || len(config.outSubject) == 0 {
+		cclog.ComponentError("CONFIG", "Failed to get input and output subject for NATS")
+		return 1
+	}
+	cclog.ComponentDebug("CONFIG", "Initializing sysfeatures")
 	err = sysfeatures.SysFeaturesInit()
 	if err != nil {
-		fmt.Println(err.Error())
+		cclog.Error(err.Error())
 		return 1
 	}
+	defer sysfeatures.SysFeaturesClose()
 
+	cclog.ComponentDebug("CONFIG", "Connecting NATS")
 	conn, err := ConnectNats(config)
 	if err != nil {
-		fmt.Println(err.Error())
+		cclog.Error(err.Error())
 		return 1
 	}
+	defer DisconnectNats(conn)
 
+	cclog.ComponentDebug("CONFIG", "Configuring signals")
 	shutdownSignal := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignal, os.Interrupt)
 	signal.Notify(shutdownSignal, syscall.SIGTERM)
 
+	cclog.ComponentDebug("CONFIG", "Starting Loop")
 global_for:
 	for {
 		select {
 		case <-shutdownSignal:
-			fmt.Println("got interrupt, exiting...")
+			cclog.ComponentDebug("LOOP", "got interrupt, exiting...")
 			break global_for
 		case msg := <-conn.ch:
 			data := string(msg.Data)
 			for _, line := range strings.Split(data, "\n") {
-				m, err := FromLineProtocol(line)
-				if err != nil {
-					fmt.Println(err.Error())
-					continue
-				}
-				if m.Name() != hostname {
-					continue
+				select {
+				case <-shutdownSignal:
+					cclog.ComponentDebug("LOOP", "got interrupt, exiting...")
+					break global_for
+				default:
+					cclog.ComponentDebug("LOOP", "parsing", line)
+					m, err := FromLineProtocol(line)
+					if err != nil {
+						cclog.Error(err.Error())
+						continue
+					}
+					if m.Name() != hostname {
+						cclog.ComponentDebug("LOOP", "Non-local command, skipping...")
+						continue
+					}
+					cclog.ComponentDebug("LOOP", "processing", line)
+					r, err := ProcessCommand(m)
+					if err != nil {
+						cclog.Error(err.Error())
+					}
+					if r != nil {
+						cclog.ComponentDebug("LOOP", "sending response", r)
+						PublishNats(conn, r)
+					}
 				}
 
-				ProcessCommand(m)
 			}
 		}
 	}
 
-	DisconnectNats(conn)
-	sysfeatures.SysFeaturesClose()
 	return 0
 }
 
