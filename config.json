@@ -1,5 +1,6 @@
 {
     "hostname" : "127.0.0.1",
     "port" : 4222,
-    "subject_prefix" : "/cc-control"
+    "input_subject_prefix" : "/cc-control",
+    "output_subject_prefix" : "/cc-events"
 }
