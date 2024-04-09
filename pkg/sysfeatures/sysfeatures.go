@@ -2,8 +2,11 @@ package sysfeatures
 
 /*
 #cgo CFLAGS: -I./likwid -DLIKWID_WITH_SYSFEATURES
-#cgo LDFLAGS: -Wl,--unresolved-symbols=ignore-in-object-files
+#cgo LDFLAGS: -Wl,--unresolved-symbols=ignore-in-object-files -llikwid
 #include <stdlib.h>
+#ifndef LIKWID_WITH_SYSFEATURES
+#define LIKWID_WITH_SYSFEATURES
+#endif
 #include <likwid.h>
 
 // Helper functions to access bitfields in SysFeature struct
@@ -42,16 +45,19 @@ func SysFeaturesInit() error {
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("Checking sysFeatures support")
 	cerr := C.likwid_getSysFeaturesSupport()
 	if cerr == 0 {
 		return fmt.Errorf("likwid library built without SysFeatures support")
 	}
+	fmt.Println("Getting topology")
 	cerr = C.topology_init()
 	if cerr != 0 {
 		return fmt.Errorf("failed to initialize topology component")
 	}
+	fmt.Println("Getting affinity")
 	C.affinity_init()
+	fmt.Println("Running sysFeatures_init")
 	cerr = C.sysFeatures_init()
 	if cerr != 0 {
 		return fmt.Errorf("failed to initialize SysFeatures component")
