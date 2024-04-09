@@ -2,7 +2,7 @@ package sysfeatures
 
 /*
 #cgo CFLAGS: -I./likwid -DLIKWID_WITH_SYSFEATURES
-#cgo LDFLAGS: -L/home/unrz139/.modules/likwid-5.3.0/lib -Wl,-rpath=/home/unrz139/.modules/likwid-5.3.0/lib -Wl,--unresolved-symbols=ignore-in-object-files -llikwid
+#cgo LDFLAGS: -L/usr/local/lib -Wl,-rpath=/usr/local/lib -Wl,--unresolved-symbols=ignore-in-object-files -llikwid
 #include <stdlib.h>
 #ifndef LIKWID_WITH_SYSFEATURES
 #define LIKWID_WITH_SYSFEATURES
@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	LIKWID_LIB_NAME     = "/home/unrz139/.modules/likwid-5.3.0/lib/liblikwid.so"
+	LIKWID_LIB_NAME     = "liblikwid.so"
 	LIKWID_LIB_DL_FLAGS = dl.RTLD_LAZY | dl.RTLD_GLOBAL
 )
 
 func OpenLikwidLibrary() error {
-	lib := dl.New(LIKWID_LIB_NAME, dl.RTLD_NOW|dl.RTLD_GLOBAL)
+	lib := dl.New(LIKWID_LIB_NAME, LIKWID_LIB_DL_FLAGS)
 	if lib == nil {
 		return fmt.Errorf("error instantiating DynamicLibrary %s", LIKWID_LIB_NAME)
 	}
