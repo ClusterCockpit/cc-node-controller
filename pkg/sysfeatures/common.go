@@ -12,7 +12,7 @@ const (
 )
 
 func OpenLikwidLibrary() error {
-	lib := dl.New("liblikwid.so", dl.RTLD_LAZY|dl.RTLD_GLOBAL)
+	lib := dl.New(LIKWID_LIB_NAME, dl.RTLD_LAZY|dl.RTLD_GLOBAL)
 	if lib == nil {
 		return fmt.Errorf("error instantiating DynamicLibrary %s", LIKWID_LIB_NAME)
 	}
