@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cc-node-controller-simple/pkg/sysfeatures"
+	"cc-node-controller/pkg/sysfeatures"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -19,6 +19,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 )
+
+var cc_node_control_hostname string = ""
 
 type NatsConnection struct {
 	conn       *nats.Conn
@@ -94,7 +96,7 @@ func FromLineProtocol(metric string) (ccmetric.CCMetric, error) {
 func ProcessCommand(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 
 	createOutput := func(errorString string, tags map[string]string) (ccmetric.CCMetric, error) {
-		resp, err := ccmetric.New("cc-node-controller", tags, map[string]string{}, map[string]interface{}{"value": errorString}, time.Now())
+		resp, err := ccmetric.New("knobs", tags, map[string]string{}, map[string]interface{}{"value": errorString}, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
 			return resp, errors.New(errorString)
@@ -213,6 +215,7 @@ func real_main() int {
 		fmt.Println(err.Error())
 		return 1
 	}
+	cc_node_control_hostname = hostname
 
 	cli_opts := ReadCli()
 	if len(cli_opts["configfile"]) == 0 {
@@ -288,23 +291,38 @@ global_for:
 					cclog.ComponentDebug("LOOP", "got interrupt, exiting...")
 					break global_for
 				default:
+					var r ccmetric.CCMetric
 					cclog.ComponentDebug("LOOP", "parsing", line)
 					m, err := FromLineProtocol(line)
 					if err != nil {
 						cclog.Error(err.Error())
 						continue
 					}
-					if m.Name() != hostname {
+					if h, ok := m.GetTag("hostname"); ok && h == hostname {
 						cclog.ComponentDebug("LOOP", "Non-local command, skipping...")
 						continue
 					}
 					cclog.ComponentDebug("LOOP", "processing", line)
-					r, err := ProcessCommand(m)
-					if err != nil {
-						cclog.Error(err.Error())
+					switch m.Name() {
+					case "topology":
+						r, err = ProcessTopologyConfig(m)
+						if err != nil {
+							cclog.Error(err.Error())
+						}
+					case "controls":
+						r, err = ProcessControlsConfig(m)
+						if err != nil {
+							cclog.Error(err.Error())
+						}
+					default:
+						r, err = ProcessCommand(m)
+						if err != nil {
+							cclog.Error(err.Error())
+						}
 					}
 					if r != nil {
 						cclog.ComponentDebug("LOOP", "sending response", r)
+						r.AddTag("hostname", cc_node_control_hostname)
 						PublishNats(conn, r)
 					}
 				}
