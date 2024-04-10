@@ -1,4 +1,4 @@
-module cc-node-controller-simple
+module cc-node-controller
 
 go 1.20
 
@@ -7,6 +7,7 @@ require (
 	github.com/NVIDIA/go-nvml v0.12.0-1
 	github.com/influxdata/line-protocol v0.0.0-20210922203350-b1ad95c89adf
 	github.com/nats-io/nats.go v1.31.0
+	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 )
 
 require (
@@ -74,7 +75,6 @@ require (
 	github.com/yosssi/ace v0.0.5 // indirect
 	golang.org/x/arch v0.5.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
