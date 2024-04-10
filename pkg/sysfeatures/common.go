@@ -11,7 +11,6 @@ package sysfeatures
 */
 import "C"
 import (
-	"errors"
 	"fmt"
 
 	"github.com/NVIDIA/go-nvml/pkg/dl"
@@ -37,18 +36,18 @@ func OpenLikwidLibrary() error {
 		return fmt.Errorf("LIKWID library %s version 5.3+ required: %v", lib.Name, err)
 	}
 	fmt.Println("Found symbol likwid_getSysFeaturesSupport")
-	if C.likwid_getSysFeaturesSupport == nil {
-		return errors.New("function likwid_getSysFeaturesSupport is NULL")
-	}
-	fmt.Println("Function likwid_getSysFeaturesSupport valid")
+	// if C.likwid_getSysFeaturesSupport == nil {
+	// 	return errors.New("function likwid_getSysFeaturesSupport is NULL")
+	// }
+	// fmt.Println("Function likwid_getSysFeaturesSupport valid")
 	err = lib.Lookup("sysFeatures_init")
 	if err != nil {
 		return fmt.Errorf("LIKWID library %s built without SysFeatures support: %v", lib.Name, err)
 	}
 	fmt.Println("Found sysFeatures_init")
-	if C.sysFeatures_init == nil {
-		return errors.New("function sysFeatures_init is NULL")
-	}
-	fmt.Println("Function sysFeatures_init valid")
+	// if C.sysFeatures_init == nil {
+	// 	return errors.New("function sysFeatures_init is NULL")
+	// }
+	// fmt.Println("Function sysFeatures_init valid")
 	return nil
 }

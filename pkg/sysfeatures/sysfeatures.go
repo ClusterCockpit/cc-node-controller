@@ -2,7 +2,7 @@ package sysfeatures
 
 /*
 #cgo CFLAGS: -I./likwid -DLIKWID_WITH_SYSFEATURES
-#cgo LDFLAGS: -Wl,--unresolved-symbols=ignore-in-object-files -llikwid
+#cgo LDFLAGS: -Wl,--unresolved-symbols=ignore-in-object-files
 #include <stdlib.h>
 #ifndef LIKWID_WITH_SYSFEATURES
 #define LIKWID_WITH_SYSFEATURES
