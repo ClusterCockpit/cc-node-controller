@@ -119,7 +119,7 @@ func FromLineProtocol(metric string) (ccmetric.CCMetric, error) {
 func ProcessCommand(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 
 	createOutput := func(errorString string, tags map[string]string) (ccmetric.CCMetric, error) {
-		resp, err := ccmetric.New("knobs", tags, map[string]string{}, map[string]interface{}{"value": errorString}, time.Now())
+		resp, err := ccmetric.New(input.Name(), tags, map[string]string{}, map[string]interface{}{"value": errorString}, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
 			return resp, nil
