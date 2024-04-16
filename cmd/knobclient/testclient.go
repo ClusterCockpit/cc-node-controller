@@ -2,17 +2,23 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/nats-io/nats.go"
 )
 
 func main() {
-	pubsubject := "cc-control.nuc"
+	hostname, err := os.Hostname()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	pubsubject := fmt.Sprintf("cc-control.%s", hostname)
 	subsubject := "cc-events.*"
 	commands := []string{
-		"cpu_freq.base_freq,hostname=nuc,method=GET,type=hwthread,type-id=0 value=0.0",
-		"rapl.pkg_energy,hostname=nuc,method=GET,type=socket,type-id=0 value=0.0",
+		fmt.Sprintf("cpu_freq.base_freq,hostname=%s,method=GET,type=hwthread,type-id=0 value=0.0", hostname),
+		fmt.Sprintf("rapl.pkg_energy,hostname=%s,method=GET,type=socket,type-id=0 value=0.0", hostname),
 	}
 
 	conn, err := nats.Connect(nats.DefaultURL)

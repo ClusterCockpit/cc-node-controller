@@ -2,17 +2,22 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/nats-io/nats.go"
 )
 
 func main() {
-	pubsubject := "/cc-control/nuc"
-	//subsubject := "/cc-events/*"
-	subsubject := "/cc-events/nuc"
+	hostname, err := os.Hostname()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	pubsubject := fmt.Sprintf("cc-control.%s", hostname)
+	subsubject := "cc-events.*"
 	commands := []string{
-		"topology,hostname=nuc,method=GET,type=node,type-id=0 value=0",
+		fmt.Sprintf("topology,hostname=%s,method=GET,type=node,type-id=0 value=0.0", hostname),
 	}
 
 	conn, err := nats.Connect(nats.DefaultURL)
