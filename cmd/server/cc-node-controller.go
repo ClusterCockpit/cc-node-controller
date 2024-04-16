@@ -3,7 +3,6 @@ package main
 import (
 	"cc-node-controller/pkg/sysfeatures"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -21,6 +20,30 @@ import (
 )
 
 var cc_node_control_hostname string = ""
+
+func toILP(event ccmetric.CCMetric) string {
+	s := event.Name()
+	tags := event.Tags()
+	fields := event.Fields()
+	if len(tags) > 0 {
+		s += ","
+		tlist := make([]string, 0, len(tags))
+		for k, v := range tags {
+			tlist = append(tlist, fmt.Sprintf("%s=%s", k, v))
+		}
+		s += strings.Join(tlist, ",")
+	}
+	if len(fields) > 0 {
+		s += " "
+		flist := make([]string, 0, len(fields))
+		for k, v := range fields {
+			flist = append(flist, fmt.Sprintf("%s=%v", k, v))
+		}
+		s += strings.Join(flist, ",")
+	}
+	s += fmt.Sprintf(" %d", event.Time().Unix())
+	return s
+}
 
 type NatsConnection struct {
 	conn       *nats.Conn
@@ -56,7 +79,7 @@ func ConnectNats(config NatsConfig) (NatsConnection, error) {
 		return c, err
 	}
 
-	ch := make(chan *nats.Msg)
+	ch := make(chan *nats.Msg, 100)
 	cclog.ComponentDebug("NATS", "subscribing to", config.subject)
 	sub, err := conn.ChanSubscribe(config.subject, ch)
 	if err != nil {
@@ -69,7 +92,7 @@ func ConnectNats(config NatsConfig) (NatsConnection, error) {
 }
 
 func PublishNats(conn NatsConnection, event ccmetric.CCMetric) error {
-	cclog.ComponentDebug("NATS", "Publish ", conn.outSubject, ": ", event.String())
+	cclog.ComponentDebug("NATS", "Publish", conn.outSubject, ":", toILP(event))
 	return conn.conn.Publish(conn.outSubject, []byte(event.String()))
 }
 
@@ -99,43 +122,40 @@ func ProcessCommand(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 		resp, err := ccmetric.New("knobs", tags, map[string]string{}, map[string]interface{}{"value": errorString}, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
-			return resp, errors.New(errorString)
+			return resp, nil
 		}
 		return nil, fmt.Errorf("%s and cannot send response", errorString)
 	}
 
 	var tid int64 = 0
 	var err error = nil
-	cclog.ComponentDebug("Sysfeatures", "Processing", input)
+	cclog.ComponentDebug("Sysfeatures", "Processing", toILP(input))
+	knob := input.Name()
 	t, ok := input.GetTag("type")
 	if !ok {
-		return createOutput(fmt.Sprintf("No 'type' tag in %s", input), input.Tags())
+		return createOutput(fmt.Sprintf("No 'type' tag in %s", toILP(input)), input.Tags())
 	}
 	if t != "node" {
 		stid, ok := input.GetTag("type-id")
 		if !ok {
-			return createOutput(fmt.Sprintf("No 'type-id' tag in %s", input), input.Tags())
+			return createOutput(fmt.Sprintf("No 'type-id' tag in %s", toILP(input)), input.Tags())
 		}
 		tid, err = strconv.ParseInt(stid, 10, 64)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s", input), input.Tags())
+			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s", toILP(input)), input.Tags())
 		}
-	}
-	knob, ok := input.GetTag("knob")
-	if !ok {
-		return createOutput(fmt.Sprintf("No 'knob' tag in %s", input), input.Tags())
 	}
 	method, ok := input.GetTag("method")
 	if !ok {
-		return createOutput(fmt.Sprintf("No 'method' tag in %s", input), input.Tags())
+		return createOutput(fmt.Sprintf("No 'method' tag in %s", toILP(input)), input.Tags())
 	}
 	if method != "PUT" && method != "GET" {
-		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input), input.Tags())
+		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", toILP(input)), input.Tags())
 	}
 	if method == "PUT" {
 		value, ok := input.GetField("value")
 		if !ok {
-			return createOutput(fmt.Sprintf("No 'value' field in %s", input), input.Tags())
+			return createOutput(fmt.Sprintf("No 'value' field in %s", toILP(input)), input.Tags())
 		}
 		v := fmt.Sprintf("%d", value)
 		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
@@ -164,9 +184,9 @@ func ProcessCommand(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 		if err == nil {
 			resp.AddTag("level", "INFO")
 		}
-		return resp, err
+		return resp, nil
 	}
-	return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input), input.Tags())
+	return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", toILP(input)), input.Tags())
 }
 
 func ReadCli() map[string]string {
@@ -235,7 +255,7 @@ func real_main() int {
 		config.subject = config.InputSubject
 	} else {
 		if len(config.InputSubjectPrefix) > 0 {
-			config.subject = fmt.Sprintf("%s/%s", config.InputSubjectPrefix, hostname)
+			config.subject = fmt.Sprintf("%s.%s", config.InputSubjectPrefix, hostname)
 		} else {
 			config.subject = hostname
 		}
@@ -245,7 +265,7 @@ func real_main() int {
 		config.outSubject = config.OutputSubject
 	} else {
 		if len(config.OutputSubjectPrefix) > 0 {
-			config.outSubject = fmt.Sprintf("%s/%s", config.OutputSubjectPrefix, hostname)
+			config.outSubject = fmt.Sprintf("%s.%s", config.OutputSubjectPrefix, hostname)
 		} else {
 			config.outSubject = fmt.Sprintf("%s-out", hostname)
 		}
@@ -285,6 +305,7 @@ global_for:
 			break global_for
 		case msg := <-conn.ch:
 			data := string(msg.Data)
+			cclog.ComponentDebug("LOOP", "got data", data)
 			for _, line := range strings.Split(data, "\n") {
 				select {
 				case <-shutdownSignal:
@@ -298,18 +319,20 @@ global_for:
 						cclog.Error(err.Error())
 						continue
 					}
-					if h, ok := m.GetTag("hostname"); ok && h == hostname {
+					if h, ok := m.GetTag("hostname"); ok && h != hostname {
 						cclog.ComponentDebug("LOOP", "Non-local command, skipping...")
 						continue
 					}
 					cclog.ComponentDebug("LOOP", "processing", line)
 					switch m.Name() {
 					case "topology":
+						cclog.ComponentDebug("LOOP", "Got topology message")
 						r, err = ProcessTopologyConfig(m)
 						if err != nil {
 							cclog.Error(err.Error())
 						}
 					case "controls":
+						cclog.ComponentDebug("LOOP", "Got controls message")
 						r, err = ProcessControlsConfig(m)
 						if err != nil {
 							cclog.Error(err.Error())
@@ -321,8 +344,8 @@ global_for:
 						}
 					}
 					if r != nil {
-						cclog.ComponentDebug("LOOP", "sending response", r)
 						r.AddTag("hostname", cc_node_control_hostname)
+						cclog.ComponentDebug("LOOP", "sending response", toILP(r))
 						PublishNats(conn, r)
 					}
 				}

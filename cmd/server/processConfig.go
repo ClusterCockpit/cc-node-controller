@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -22,7 +21,7 @@ func ProcessTopologyConfig(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 		resp, err := ccmetric.New("topology", tags, map[string]string{}, map[string]interface{}{"value": str}, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
-			return resp, errors.New(str)
+			return resp, nil
 		}
 		return nil, fmt.Errorf("%s and cannot send response", str)
 	}
@@ -39,6 +38,8 @@ func ProcessTopologyConfig(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 	resp, err := createOutput(string(out), input.Tags())
 	if err == nil {
 		resp.AddTag("level", "INFO")
+	} else {
+		cclog.ComponentError("ProcessTopologyConfig", err.Error())
 	}
 	return resp, err
 }
@@ -60,7 +61,7 @@ func ProcessControlsConfig(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 		resp, err := ccmetric.New("controls", tags, map[string]string{}, map[string]interface{}{"value": str}, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
-			return resp, errors.New(str)
+			return resp, nil
 		}
 		return nil, fmt.Errorf("%s and cannot send response", str)
 	}
@@ -82,11 +83,12 @@ func ProcessControlsConfig(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 	if err != nil {
 		createOutput("cannot marshal input control list", input.Tags())
 	}
-
 	resp, err := createOutput(string(clj), input.Tags())
 	if err == nil {
 		resp.AddTag("level", "INFO")
 		return resp, nil
+	} else {
+		cclog.ComponentError("ProcessControlsConfig", err.Error())
 	}
 
 	return createOutput("not implemented", input.Tags())
