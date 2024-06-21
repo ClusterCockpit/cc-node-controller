@@ -1,4 +1,4 @@
-module cc-node-controller
+module github.com/ClusterCockpit/cc-node-controller
 
 go 1.20
 
