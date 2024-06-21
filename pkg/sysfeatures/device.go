@@ -14,7 +14,7 @@ import (
 	"fmt"
 )
 
-type LikwidDeviceType float64
+type LikwidDeviceType int
 
 const (
 	Invalid        LikwidDeviceType = iota

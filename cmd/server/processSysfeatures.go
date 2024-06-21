@@ -36,42 +36,53 @@ func ProcessSysfeatures(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 		}
 		tid, err = strconv.ParseInt(stid, 10, 64)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s", input), input.Tags())
+			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s: %v", input, err.Error()), input.Tags())
 		}
 	}
+	cclog.ComponentDebug("Sysfeatures", "Getting method", input)
 	method, ok := input.GetTag("method")
 	if !ok {
 		return createOutput(fmt.Sprintf("No 'method' tag in %s", input), input.Tags())
 	}
 	if method != "PUT" && method != "GET" {
-		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input), input.Tags())
+		return createOutput(fmt.Sprintf("Invalid 'method' tag %s in %s", method, input), input.Tags())
 	}
 	if method == "PUT" {
 		value, ok := input.GetField("value")
 		if !ok {
 			return createOutput(fmt.Sprintf("No 'value' field in %s", input), input.Tags())
 		}
-		v := fmt.Sprintf("%d", value)
+		svalue := ""
+		switch v := value.(type) {
+		case string:
+			cclog.ComponentDebug("Sysfeatures", "Value is a string")
+			svalue = v
+		default:
+			cclog.ComponentDebug("Sysfeatures", "Value is a other, use sprintf")
+			svalue = fmt.Sprintf("%v", v)
+			cclog.ComponentDebug("Sysfeatures", "Value is a other", svalue)
+		}
+
 		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
 		dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid), input.Tags())
+			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d: %v", t, tid, err.Error()), input.Tags())
 		}
-		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", t, " ", int(tid), "to", v)
-		err = sysfeatures.SysFeaturesSetDevice(knob, dev, v)
+		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", t, " ", int(tid), "to", svalue)
+		err = sysfeatures.SysFeaturesSetDevice(knob, dev, svalue)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Failed to set %s=%s for device %s%d", knob, v, t, tid), input.Tags())
+			return createOutput(fmt.Sprintf("Failed to set %s=%s for device %s%d: %v", knob, svalue, t, tid, err.Error()), input.Tags())
 		}
 	} else if method == "GET" {
 		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
 		dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid), input.Tags())
+			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d: %v", t, tid, err.Error()), input.Tags())
 		}
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", t, " ", int(tid))
 		value, err := sysfeatures.SysFeaturesGetDevice(knob, dev)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Failed to get %s for device %s%d", knob, t, tid), input.Tags())
+			return createOutput(fmt.Sprintf("Failed to get %s for device %s%d: %v", knob, t, tid, err.Error()), input.Tags())
 		}
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", t, " ", int(tid), "returned", value)
 		resp, err := createOutput(value, input.Tags())

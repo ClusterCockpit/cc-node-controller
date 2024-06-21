@@ -15,92 +15,35 @@ import (
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
 	ccmetric "github.com/ClusterCockpit/cc-metric-collector/pkg/ccMetric"
 	lp "github.com/influxdata/line-protocol" // MIT license
-
-	"github.com/nats-io/nats.go"
 )
 
 var cc_node_control_hostname string = ""
 
 func toILP(event ccmetric.CCMetric) string {
-	s := event.Name()
-	tags := event.Tags()
-	fields := event.Fields()
-	if len(tags) > 0 {
-		s += ","
-		tlist := make([]string, 0, len(tags))
-		for k, v := range tags {
-			tlist = append(tlist, fmt.Sprintf("%s=%s", k, v))
-		}
-		s += strings.Join(tlist, ",")
-	}
-	if len(fields) > 0 {
-		s += " "
-		flist := make([]string, 0, len(fields))
-		for k, v := range fields {
-			flist = append(flist, fmt.Sprintf("%s=%v", k, v))
-		}
-		s += strings.Join(flist, ",")
-	}
-	s += fmt.Sprintf(" %d", event.Time().Unix())
-	return s
-}
-
-type NatsConnection struct {
-	conn       *nats.Conn
-	sub        *nats.Subscription
-	ch         chan *nats.Msg
-	outSubject string
-}
-
-type NatsConfig struct {
-	Hostname            string `json:"hostname"`
-	Port                int    `json:"port"`
-	Username            string `json:"username,omitempty"`
-	Password            string `json:"password,omitempty"`
-	InputSubjectPrefix  string `json:"input_subject_prefix,omitempty"`
-	InputSubject        string `json:"input_subject,omitempty"`
-	OutputSubjectPrefix string `json:"output_subject_prefix,omitempty"`
-	OutputSubject       string `json:"output_subject,omitempty"`
-	subject             string
-	outSubject          string
-}
-
-func ConnectNats(config NatsConfig) (NatsConnection, error) {
-	c := NatsConnection{
-		conn:       nil,
-		sub:        nil,
-		ch:         nil,
-		outSubject: config.outSubject,
-	}
-	uri := fmt.Sprintf("%s:%d", config.Hostname, config.Port)
-	cclog.ComponentDebug("NATS", "connecting to", uri)
-	conn, err := nats.Connect(uri)
-	if err != nil {
-		return c, err
-	}
-
-	ch := make(chan *nats.Msg, 100)
-	cclog.ComponentDebug("NATS", "subscribing to", config.subject)
-	sub, err := conn.ChanSubscribe(config.subject, ch)
-	if err != nil {
-		return c, err
-	}
-	c.conn = conn
-	c.ch = ch
-	c.sub = sub
-	return c, nil
-}
-
-func PublishNats(conn NatsConnection, event ccmetric.CCMetric) error {
-	cclog.ComponentDebug("NATS", "Publish", conn.outSubject, ":", toILP(event))
-	return conn.conn.Publish(conn.outSubject, []byte(event.String()))
-}
-
-func DisconnectNats(conn NatsConnection) {
-	cclog.ComponentDebug("NATS", "disconnecting ...")
-	conn.sub.Unsubscribe()
-	close(conn.ch)
-	conn.conn.Close()
+	b := new(strings.Builder)
+	enc := lp.NewEncoder(b)
+	enc.Encode(event.ToPoint(map[string]bool{}))
+	// s := event.Name()
+	// tags := event.Tags()
+	// fields := event.Fields()
+	// if len(tags) > 0 {
+	// 	s += ","
+	// 	tlist := make([]string, 0, len(tags))
+	// 	for k, v := range tags {
+	// 		tlist = append(tlist, fmt.Sprintf("%s=%s", k, v))
+	// 	}
+	// 	s += strings.Join(tlist, ",")
+	// }
+	// if len(fields) > 0 {
+	// 	s += " "
+	// 	flist := make([]string, 0, len(fields))
+	// 	for k, v := range fields {
+	// 		flist = append(flist, fmt.Sprintf("%s=%v", k, v))
+	// 	}
+	// 	s += strings.Join(flist, ",")
+	// }
+	// s += fmt.Sprintf(" %d", event.Time().Unix())
+	return b.String()
 }
 
 func FromLineProtocol(metric string) (ccmetric.CCMetric, error) {
@@ -118,8 +61,8 @@ func FromLineProtocol(metric string) (ccmetric.CCMetric, error) {
 
 func ProcessCommand(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 
-	createOutput := func(errorString string, tags map[string]string) (ccmetric.CCMetric, error) {
-		resp, err := ccmetric.New(input.Name(), tags, map[string]string{}, map[string]interface{}{"value": errorString}, time.Now())
+	createOutput := func(errorString string) (ccmetric.CCMetric, error) {
+		resp, err := ccmetric.New(input.Name(), input.Tags(), input.Meta(), map[string]interface{}{"value": errorString}, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
 			return resp, nil
@@ -133,60 +76,60 @@ func ProcessCommand(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
 	knob := input.Name()
 	t, ok := input.GetTag("type")
 	if !ok {
-		return createOutput(fmt.Sprintf("No 'type' tag in %s", toILP(input)), input.Tags())
+		return createOutput(fmt.Sprintf("No 'type' tag in %s", toILP(input)))
 	}
 	if t != "node" {
 		stid, ok := input.GetTag("type-id")
 		if !ok {
-			return createOutput(fmt.Sprintf("No 'type-id' tag in %s", toILP(input)), input.Tags())
+			return createOutput(fmt.Sprintf("No 'type-id' tag in %s", toILP(input)))
 		}
 		tid, err = strconv.ParseInt(stid, 10, 64)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s", toILP(input)), input.Tags())
+			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s", toILP(input)))
 		}
 	}
 	method, ok := input.GetTag("method")
 	if !ok {
-		return createOutput(fmt.Sprintf("No 'method' tag in %s", toILP(input)), input.Tags())
+		return createOutput(fmt.Sprintf("No 'method' tag in %s", toILP(input)))
 	}
 	if method != "PUT" && method != "GET" {
-		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", toILP(input)), input.Tags())
+		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", toILP(input)))
 	}
 	if method == "PUT" {
 		value, ok := input.GetField("value")
 		if !ok {
-			return createOutput(fmt.Sprintf("No 'value' field in %s", toILP(input)), input.Tags())
+			return createOutput(fmt.Sprintf("No 'value' field in %s", toILP(input)))
 		}
 		v := fmt.Sprintf("%d", value)
 		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
 		dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid), input.Tags())
+			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid))
 		}
 		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", t, " ", int(tid), "to", v)
 		err = sysfeatures.SysFeaturesSetDevice(knob, dev, v)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Failed to set %s=%s for device %s%d", knob, v, t, tid), input.Tags())
+			return createOutput(fmt.Sprintf("Failed to set %s=%s for device %s%d", knob, v, t, tid))
 		}
 	} else if method == "GET" {
 		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
 		dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid), input.Tags())
+			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid))
 		}
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", t, " ", int(tid))
 		value, err := sysfeatures.SysFeaturesGetDevice(knob, dev)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Failed to get %s for device %s%d", knob, t, tid), input.Tags())
+			return createOutput(fmt.Sprintf("Failed to get %s for device %s%d", knob, t, tid))
 		}
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", t, " ", int(tid), "returned", value)
-		resp, err := createOutput(value, input.Tags())
+		resp, err := createOutput(value)
 		if err == nil {
 			resp.AddTag("level", "INFO")
 		}
 		return resp, nil
 	}
-	return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", toILP(input)), input.Tags())
+	return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", toILP(input)))
 }
 
 func ReadCli() map[string]string {
@@ -214,6 +157,7 @@ func LoadConfiguration(filename string) (NatsConfig, error) {
 		InputSubject:        "",
 		OutputSubjectPrefix: "",
 		OutputSubject:       "",
+		OutstandingMessages: 1000,
 		subject:             "",
 		outSubject:          "",
 	}
@@ -314,6 +258,9 @@ global_for:
 				default:
 					var r ccmetric.CCMetric
 					cclog.ComponentDebug("LOOP", "parsing", line)
+					if len(line) == 0 {
+						continue
+					}
 					m, err := FromLineProtocol(line)
 					if err != nil {
 						cclog.Error(err.Error())
@@ -346,7 +293,7 @@ global_for:
 					if r != nil {
 						r.AddTag("hostname", cc_node_control_hostname)
 						cclog.ComponentDebug("LOOP", "sending response", toILP(r))
-						PublishNats(conn, r)
+						msg.Respond([]byte(toILP(r)))
 					}
 				}
 

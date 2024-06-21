@@ -16,6 +16,7 @@ int getWriteOnly(SysFeatureList p, int idx) { return (idx > 0 && idx < p.num_fea
 import "C"
 import (
 	"fmt"
+	"strings"
 	"unsafe"
 )
 
@@ -27,6 +28,14 @@ type SysFeature struct {
 	DevtypeName string
 	ReadOnly    bool
 	WriteOnly   bool
+}
+
+func (s *SysFeature) String() string {
+	slist := make([]string, 0)
+	slist = append(slist, fmt.Sprintf("Category %s Name %s", s.Category, s.Name))
+	slist = append(slist, fmt.Sprintf("Description: %s", s.Description))
+	slist = append(slist, fmt.Sprintf("For type: %s", s.DevtypeName))
+	return strings.Join(slist, "\n")
 }
 
 type SysFeatures struct {
@@ -45,19 +54,19 @@ func SysFeaturesInit() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Checking sysFeatures support")
+	//fmt.Println("Checking sysFeatures support")
 	cerr := C.likwid_getSysFeaturesSupport()
 	if cerr == 0 {
 		return fmt.Errorf("likwid library built without SysFeatures support")
 	}
-	fmt.Println("Getting topology")
+	//fmt.Println("Getting topology")
 	cerr = C.topology_init()
 	if cerr != 0 {
 		return fmt.Errorf("failed to initialize topology component")
 	}
-	fmt.Println("Getting affinity")
+	//fmt.Println("Getting affinity")
 	C.affinity_init()
-	fmt.Println("Running sysFeatures_init")
+	//fmt.Println("Running sysFeatures_init")
 	cerr = C.sysFeatures_init()
 	if cerr != 0 {
 		return fmt.Errorf("failed to initialize SysFeatures component")
@@ -149,15 +158,17 @@ func SysFeaturesGet(name string, devicetype int, deviceidx int) (string, error) 
 }
 
 func SysFeaturesSetDevice(name string, dev LikwidDevice, value string) error {
-	var val *C.char
+	//var val *C.char
 	if !_likwid_sysfeatures.inititalized {
 		return fmt.Errorf("SysFeatures not initialized")
 	}
 	cs := C.CString(name)
-	cerr := C.sysFeatures_modifyByName(cs, dev._raw, val)
+	cv := C.CString(value)
+	cerr := C.sysFeatures_modifyByName(cs, dev._raw, cv)
+	C.free(unsafe.Pointer(cv))
 	C.free(unsafe.Pointer(cs))
 	if cerr != 0 {
-		return fmt.Errorf("failed to set feature '%s' for device (%s, %d)", name, dev.Devname, dev.Id)
+		return fmt.Errorf("failed to set feature '%s' for device (%s, %d): %d", name, dev.Devname, dev.Id, int(cerr))
 	}
 	return nil
 }
