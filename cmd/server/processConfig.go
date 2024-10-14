@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	topo "cc-node-controller/pkg/ccTopology"
+	topo "github.com/ClusterCockpit/cc-node-controller/pkg/ccTopology"
 
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
 	ccmetric "github.com/ClusterCockpit/cc-metric-collector/pkg/ccMetric"
