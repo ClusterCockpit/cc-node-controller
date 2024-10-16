@@ -7,6 +7,11 @@
 *.dll
 *.so
 *.dylib
+/cc-node-controller
+/cmd/configclient/configclient
+/cmd/knobclient/knobclient
+/cmd/remoteclient/remoteclient
+/cmd/topologyclient/topologyclient
 
 # Test binary, built with `go test -c`
 *.test
