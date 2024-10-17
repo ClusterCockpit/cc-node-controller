@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cc-node-controller/pkg/sysfeatures"
+	"github.com/ClusterCockpit/cc-node-controller/pkg/sysfeatures"
 	"encoding/json"
 	"flag"
 	"fmt"

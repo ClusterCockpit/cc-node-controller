@@ -40,7 +40,7 @@ func OpenLikwidLibrary() error {
 	// 	return errors.New("function likwid_getSysFeaturesSupport is NULL")
 	// }
 	// fmt.Println("Function likwid_getSysFeaturesSupport valid")
-	err = lib.Lookup("sysFeatures_init")
+	err = lib.Lookup("likwid_sysft_init")
 	if err != nil {
 		return fmt.Errorf("LIKWID library %s built without SysFeatures support: %v", lib.Name, err)
 	}

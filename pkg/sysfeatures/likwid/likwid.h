@@ -5,26 +5,27 @@
  *
  *      Description:  Header File of likwid API
  *
- *      Version:   5.3
- *      Released:  10.11.2023
+ *      Version:   <VERSION>
+ *      Released:  <DATE>
  *
  *      Authors:  Thomas Gruber (tr), thomas.roehl@googlemail.com
  *
  *      Project:  likwid
  *
- *      Copyright (C) 2023 RRZE, University Erlangen-Nuremberg
+ *      Copyright (C) 2016 RRZE, University Erlangen-Nuremberg
  *
- *      This program is free software: you can redistribute it and/or modify it under
- *      the terms of the GNU General Public License as published by the Free Software
- *      Foundation, either version 3 of the License, or (at your option) any later
- *      version.
+ *      This program is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option) any
+ * later version.
  *
- *      This program is distributed in the hope that it will be useful, but WITHOUT ANY
- *      WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
- *      PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *      This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- *      You should have received a copy of the GNU General Public License along with
- *      this program.  If not, see <http://www.gnu.org/licenses/>.
+ *      You should have received a copy of the GNU General Public License along
+ * with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * =======================================================================================
  */
@@ -181,6 +182,15 @@ regions and writes them out to a file (filepath in env variable
 LIKWID_FILEPATH).
 */
 extern void likwid_markerClose(void) __attribute__((visibility("default")));
+/*! \brief Write marker API results to a file
+
+Must be called in serial region of the application. It gathers all data of
+regions and writes them out to file.
+@param markerfile [in] The file to write to
+@return Error
+*/
+extern int likwid_markerWriteFile(const char *markerfile)
+    __attribute__((visibility("default")));
 /*! \brief Register a measurement region
 
 Initializes the hashTable entry in order to reduce execution time of
@@ -245,7 +255,7 @@ extern void likwid_markerGetRegion(const char *regionTag, int *nr_events,
 Returns the ID of the CPU the current process or thread is running on.
 @return current CPU ID
 */
-extern int likwid_getProcessorId() __attribute__((visibility("default")));
+extern int likwid_getProcessorId(void) __attribute__((visibility("default")));
 /*! \brief Pin the current process to given CPU
 
 Pin the current process to the given CPU ID. The process cannot be scheduled to
@@ -306,7 +316,7 @@ extern void HPMmode(int mode) __attribute__((visibility("default")));
 Initialize the module internals to either the MSR/PCI files or the access daemon
 @return error code (0 for access)
 */
-extern int HPMinit() __attribute__((visibility("default")));
+extern int HPMinit(void) __attribute__((visibility("default")));
 /*! \brief Add CPU to access module
 
 Add the given CPU to the access module. This opens the commnunication to either
@@ -319,7 +329,7 @@ extern int HPMaddThread(int cpu_id) __attribute__((visibility("default")));
 
 Close the connections to the MSR/PCI files or the access daemon
 */
-extern void HPMfinalize() __attribute__((visibility("default")));
+extern void HPMfinalize(void) __attribute__((visibility("default")));
 /** @}*/
 
 /*
@@ -700,6 +710,10 @@ typedef struct {
                                      in the system */
   uint32_t numberOfProcessorsPerCache; /*!< \brief Number of hardware threads
                                           per LLC cache in the system */
+  uint32_t numberOfCudaDomains;       /*!< \brief Number of hardware threads
+                                          close to a Nvidia GPU in the system */
+  uint32_t numberOfRocmDomains;       /*!< \brief Number of hardware threads
+                                          close to a AMD GPU in the system */
   uint32_t numberOfAffinityDomains;    /*!< \brief Number of affinity domains in
                                           the current system  and length of \a
                                           domains array */
@@ -714,7 +728,7 @@ typedef AffinityDomains *AffinityDomains_t;
 Initialize affinity information AffinityDomains_t using the data of the
 structures \a CpuInfo_t, CpuTopology_t and NumaTopology_t \sa AffinityDomains_t
 */
-extern void affinity_init() __attribute__((visibility("default")));
+extern int affinity_init(void) __attribute__((visibility("default")));
 /*! \brief Retrieve affinity structure
 
 Get the previously initialized affinity info structure
@@ -749,13 +763,13 @@ extern void affinity_pinThread(int processorId)
 
 @return CPU ID
 */
-extern int affinity_processGetProcessorId()
+extern int affinity_processGetProcessorId(void)
     __attribute__((visibility("default")));
 /*! \brief Return the CPU ID where the current thread runs.
 
 @return CPU ID
 */
-extern int affinity_threadGetProcessorId()
+extern int affinity_threadGetProcessorId(void)
     __attribute__((visibility("default")));
 /*! \brief Destroy affinity information structure
 
@@ -763,7 +777,7 @@ Destroys the affinity information structure AffinityDomains_t. Retrieved
 pointers to the structures are not valid anymore after this function call \sa
 AffinityDomains_t
 */
-extern void affinity_finalize() __attribute__((visibility("default")));
+extern void affinity_finalize(void) __attribute__((visibility("default")));
 /** @}*/
 
 /*
@@ -1166,13 +1180,13 @@ extern int perfmon_readMarkerFile(const char *filename)
     __attribute__((visibility("default")));
 /*! \brief Free space for read in Marker API file
  */
-extern void perfmon_destroyMarkerResults()
+extern void perfmon_destroyMarkerResults(void)
     __attribute__((visibility("default")));
 /*! \brief Get the number of regions listed in Marker API result file
 
 @return Number of regions
 */
-extern int perfmon_getNumberOfRegions() __attribute__((visibility("default")));
+extern int perfmon_getNumberOfRegions(void) __attribute__((visibility("default")));
 /*! \brief Get the groupID of a region
 
 @param [in] region ID of region
@@ -1890,7 +1904,7 @@ typedef enum {
 
 Initialize the internal feature variables for all CPUs
 */
-extern void cpuFeatures_init() __attribute__((visibility("default")));
+extern void cpuFeatures_init(void) __attribute__((visibility("default")));
 /*! \brief Print state of all CPU features for a given CPU
 
 Print state of all CPU features for a given CPU
@@ -2244,9 +2258,11 @@ extern CudaTopology_t get_cudaTopology(void)
 
 Must be called in serial region of the application to set up basic data
 structures of LIKWID. Reads environment variables:
-- LIKWID_GEVENTS (GPU event string)
-- LIKWID_GPUS (GPU list separated by ,)
-- LIKWID_GPUFILEPATH (Outputpath for NvMarkerAPI file)
+- LIKWID_NVMON_EVENTS (GPU event string)
+- LIKWID_NVMON_GPUS (GPU list separated by ,)
+- LIKWID_NVMON_FILEPATH (Outputpath for NvMarkerAPI file)
+- LIKWID_NVMON_VERBOSITY (Verbosity level for NVMON interface)
+- LIKWID_DEBUG (Verbosity level for whole library)
 */
 extern void nvmon_markerInit(void) __attribute__((visibility("default")));
 /*! \brief Select next group to measure
@@ -2260,7 +2276,7 @@ extern void nvmon_markerNextGroup(void)
 
 Must be called in serial region of the application. It gathers all data of
 regions and writes them out to a file (filepath in env variable
-LIKWID_FILEPATH).
+LIKWID_NVMON_FILEPATH).
 */
 extern void nvmon_markerClose(void) __attribute__((visibility("default")));
 /*! \brief Register a measurement region
@@ -2317,6 +2333,13 @@ extern void nvmon_markerGetRegion(const char *regionTag, int *nr_gpus,
                                       int *nr_events, double **events,
                                       double *time, int *count)
     __attribute__((visibility("default")));
+/*! \brief Write the output file of the NvMarker API
+@param [in] markerfile Filename for NvMarker API results
+@return 0 or negative error number
+*/
+extern int nvmon_markerWriteFile(const char* markerfile)
+    __attribute__((visibility("default")));
+
 
 /*! \brief Read the output file of the NvMarker API
 @param [in] filename Filename with NvMarker API results
@@ -2326,12 +2349,12 @@ int nvmon_readMarkerFile(const char *filename)
     __attribute__((visibility("default")));
 /*! \brief Free space for read in NvMarker API file
  */
-void nvmon_destroyMarkerResults() __attribute__((visibility("default")));
+void nvmon_destroyMarkerResults(void) __attribute__((visibility("default")));
 /*! \brief Get the number of regions listed in NvMarker API result file
 
 @return Number of regions
 */
-int nvmon_getNumberOfRegions() __attribute__((visibility("default")));
+int nvmon_getNumberOfRegions(void) __attribute__((visibility("default")));
 /*! \brief Get the number of metrics of a region
 @param [in] region ID of region
 @return Number of metrics of region
@@ -2760,7 +2783,7 @@ typedef struct {
 /** \brief Pointer for exporting the GpuTopology data structure */
 typedef RocmTopology *RocmTopology_t;
 
-int topology_rocm_init() __attribute__((visibility("default")));
+int topology_rocm_init(void) __attribute__((visibility("default")));
 void topology_rocm_finalize(void) __attribute__((visibility("default")));
 RocmTopology_t get_rocmTopology(void)
     __attribute__((visibility("default")));
@@ -3030,7 +3053,7 @@ int rocmon_returnGroups(int nrgroups, char **groups, char **shortinfos,
     __attribute__((visibility("default")));
 
 /** @}*/
-    
+
 /** \addtogroup RocmonMarkerAPI Marker API module for GPUs
  *  @{
  */
@@ -3040,16 +3063,18 @@ int rocmon_returnGroups(int nrgroups, char **groups, char **shortinfos,
 
 Must be called in serial region of the application to set up basic data
 structures of LIKWID. Reads environment variables:
-- LIKWID_GEVENTS (GPU event string)
-- LIKWID_GPUS (GPU list separated by ,)
-- LIKWID_GPUFILEPATH (Outputpath for RocmonMarkerAPI file)
+- LIKWID_ROCMON_EVENTS (GPU event string)
+- LIKWID_ROCMON_GPUS (GPU list separated by ,)
+- LIKWID_ROCMON_FILEPATH (Outputpath for RocmonMarkerAPI file)
+- LIKWID_ROCMON_VERBOSITY (Verbosity level for ROCMON interface)
+- LIKWID_DEBUG (Verbosity level for whole library)
 */
 void rocmon_markerInit(void) __attribute__((visibility("default")));
 /*! \brief Close LIKWID's RocmonMarker API
 
 Must be called in serial region of the application. It gathers all data of
 regions and writes them out to a file (filepath in env variable
-LIKWID_FILEPATH).
+LIKWID_ROCMON_FILEPATH).
 */
 void rocmon_markerClose(void) __attribute__((visibility("default")));
 /*! \brief Register a measurement region
@@ -3089,6 +3114,24 @@ Reset the values of all configured counters and timers.
 int rocmon_markerResetRegion(const char *regionTag)
     __attribute__((visibility("default")));
 
+/*! \brief Write measurement data to file
+
+Write current values to file
+@param markerfile [in] Filename for writing
+@return Error code of write operation
+*/
+int rocmon_markerWriteFile(const char *markerfile)
+    __attribute__((visibility("default")));
+
+/*! \brief Select next group to measure
+
+Must be called in parallel region of the application to switch group on every
+CPU.
+*/
+extern void rocmon_markerNextGroup(void)
+    __attribute__((visibility("default")));
+
+
 /*! \brief Read the output file of the RocmonMarker API
 @param [in] filename Filename with RocmonMarker API results
 @return 0 or negative error number
@@ -3097,7 +3140,7 @@ int rocmon_readMarkerFile(const char *filename)
     __attribute__((visibility("default")));
 /*! \brief Free space for read in RocmonMarker API file
  */
-void rocmon_destroyMarkerResults() __attribute__((visibility("default")));
+void rocmon_destroyMarkerResults(void) __attribute__((visibility("default")));
 /*! \brief Get the call count of a region for a GPU
 @param [in] region ID of region
 @param [in] gpu ID of GPU
@@ -3135,7 +3178,7 @@ int rocmon_getMetricsOfRegion(int region)
 
 @return Number of regions
 */
-int rocmon_getNumberOfRegions() __attribute__((visibility("default")));
+int rocmon_getNumberOfRegions(void) __attribute__((visibility("default")));
 /*! \brief Get the groupID of a region
 
 @param [in] region ID of region
@@ -3242,12 +3285,12 @@ typedef struct {
     LikwidDeviceType type;
     unsigned int readonly:1;
     unsigned int writeonly:1;
-} SysFeature;
+} LikwidSysFeature;
 
 typedef struct {
     int num_features;
-    SysFeature* features;
-} SysFeatureList;
+    LikwidSysFeature* features;
+} LikwidSysFeatureList;
 
 
 #define SYSFEATURE_PCI_DEVICE_TO_ID(domain, bus, slot, func) \
@@ -3259,17 +3302,17 @@ typedef struct {
 
 
 
-int sysFeatures_init() __attribute__ ((visibility ("default") ));
+int likwid_sysft_init(void) __attribute__ ((visibility ("default") ));
 
-int sysFeatures_list(SysFeatureList* list) __attribute__ ((visibility ("default") ));
-void sysFeatures_list_return(SysFeatureList* list) __attribute__ ((visibility ("default") ));
+int likwid_sysft_list(LikwidSysFeatureList *list) __attribute__ ((visibility ("default") ));
+void likwid_sysft_list_return(LikwidSysFeatureList *list) __attribute__ ((visibility ("default") ));
 
-int sysFeatures_get(SysFeature* feature, LikwidDevice_t device, char** value) __attribute__ ((visibility ("default") ));
-int sysFeatures_getByName(char* name, LikwidDevice_t device, char** value) __attribute__ ((visibility ("default") ));
-int sysFeatures_modify(SysFeature* feature, LikwidDevice_t device, char* value) __attribute__ ((visibility ("default") ));
-int sysFeatures_modifyByName(char* name, LikwidDevice_t device, char* value) __attribute__ ((visibility ("default") ));
+int likwid_sysft_get(const LikwidSysFeature *feature, const LikwidDevice_t device, char **value) __attribute__ ((visibility ("default") ));
+int likwid_sysft_getByName(const char *name, const LikwidDevice_t device, char** value) __attribute__ ((visibility ("default") ));
+int likwid_sysft_modify(const LikwidSysFeature* feature, const LikwidDevice_t device, const char* value) __attribute__ ((visibility ("default") ));
+int likwid_sysft_modifyByName(const char* name, const LikwidDevice_t device, const char* value) __attribute__ ((visibility ("default") ));
 
-void sysFeatures_finalize() __attribute__ ((visibility ("default") ));
+void likwid_sysft_finalize(void) __attribute__ ((visibility ("default") ));
 #endif /* LIKWID_WITH_SYSFEATURES */
 
 #ifdef __cplusplus

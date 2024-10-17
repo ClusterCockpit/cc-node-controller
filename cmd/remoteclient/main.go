@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	cccontrol "cc-node-controller/pkg/ccControlClient"
+	cccontrol "github.com/ClusterCockpit/cc-node-controller/pkg/ccControlClient"
 )
 
 func ReadCli() map[string]interface{} {
