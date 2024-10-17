@@ -10,8 +10,8 @@ package sysfeatures
 #include <likwid.h>
 
 // Helper functions to access bitfields in SysFeature struct
-int getReadOnly(SysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].readonly : 0); }
-int getWriteOnly(SysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].writeonly : 0); }
+int getReadOnly(LikwidSysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].readonly : 0); }
+int getWriteOnly(LikwidSysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].writeonly : 0); }
 */
 import "C"
 import (
@@ -66,8 +66,8 @@ func SysFeaturesInit() error {
 	}
 	//fmt.Println("Getting affinity")
 	C.affinity_init()
-	//fmt.Println("Running sysFeatures_init")
-	cerr = C.sysFeatures_init()
+	//fmt.Println("Running likwid_sysft_init")
+	cerr = C.likwid_sysft_init()
 	if cerr != 0 {
 		return fmt.Errorf("failed to initialize SysFeatures component")
 	}
@@ -77,7 +77,7 @@ func SysFeaturesInit() error {
 
 func SysFeaturesClose() {
 	if _likwid_sysfeatures.inititalized {
-		C.sysFeatures_finalize()
+		C.likwid_sysft_finalize()
 		C.affinity_finalize()
 		C.topology_finalize()
 		_likwid_sysfeatures.inititalized = false
@@ -89,11 +89,11 @@ func SysFeaturesList() ([]SysFeature, error) {
 		return nil, fmt.Errorf("SysFeatures not initialized")
 	}
 	if len(_likwid_sysfeatures.list) == 0 {
-		var l C.SysFeatureList
+		var l C.LikwidSysFeatureList
 		l.num_features = 0
 		l.features = nil
 
-		cerr := C.sysFeatures_list(&l)
+		cerr := C.likwid_sysft_list(&l)
 		if cerr != 0 {
 			return nil, fmt.Errorf("failed to get list of SysFeatures")
 		}
@@ -120,7 +120,7 @@ func SysFeaturesList() ([]SysFeature, error) {
 			}
 			_likwid_sysfeatures.list = append(_likwid_sysfeatures.list, sf)
 		}
-		C.sysFeatures_list_return(&l)
+		C.likwid_sysft_list_return(&l)
 	}
 	outlist := make([]SysFeature, 0)
 	outlist = append(outlist, _likwid_sysfeatures.list...)
@@ -133,7 +133,7 @@ func SysFeaturesGetDevice(name string, dev LikwidDevice) (string, error) {
 		return "", fmt.Errorf("SysFeatures not initialized")
 	}
 	cs := C.CString(name)
-	cerr := C.sysFeatures_getByName(cs, dev._raw, &val)
+	cerr := C.likwid_sysft_getByName(cs, dev._raw, &val)
 	C.free(unsafe.Pointer(cs))
 	if cerr != 0 {
 		return "", fmt.Errorf("failed to get feature '%s' for device (%s, %d)", name, dev.Devname, dev.Id)
@@ -164,7 +164,7 @@ func SysFeaturesSetDevice(name string, dev LikwidDevice, value string) error {
 	}
 	cs := C.CString(name)
 	cv := C.CString(value)
-	cerr := C.sysFeatures_modifyByName(cs, dev._raw, cv)
+	cerr := C.likwid_sysft_modifyByName(cs, dev._raw, cv)
 	C.free(unsafe.Pointer(cv))
 	C.free(unsafe.Pointer(cs))
 	if cerr != 0 {
