@@ -1,5 +1,8 @@
 package cccontrolclient
 
+// TODO currently disfunctional, requires more debugging
+// -topology fails and outputs zeroes only
+
 import (
 	"encoding/json"
 	"errors"
@@ -297,29 +300,34 @@ func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error
 		return topo, fmt.Errorf("failed to receive response to subject %s", mysubject)
 	}
 	m := mlist[0]
-	if m.Name() == name {
-		if testhost, ok := m.GetTag("hostname"); ok && testhost == hostname {
-			if level, ok := m.GetTag("level"); ok {
-				if value, ok := m.GetField("value"); ok {
-					if level == "INFO" {
-						switch x := value.(type) {
-						case string:
-							globerr = json.Unmarshal([]byte(x), &topo)
-						case []byte:
-							globerr = json.Unmarshal(x, &topo)
-						}
-					} else {
-						cclog.ComponentError("CCControlClient", "Host", hostname, ":", value)
-						switch x := value.(type) {
-						case string:
-							globerr = errors.New(x)
-						case []byte:
-							globerr = errors.New(string(x))
-						}
-
-					}
-				}
-			}
+	if m.Name() != name {
+		return topo, errors.New(fmt.Sprintf("unexpected name received: %s (expected: %s)", m.Name(), name))
+	}
+	if testhost, ok := m.GetTag("hostname"); !ok || testhost != hostname {
+		return topo, errors.New(fmt.Sprintf("failed to retrieve hostname or mismatched hostname: %s (expected %s, success %d)", testhost, hostname, ok));
+	}
+	level, ok := m.GetTag("level")
+	if !ok {
+		return topo, errors.New(fmt.Sprintf("Failed to get level"))
+	}
+	value, ok := m.GetField("value");
+	if !ok {
+		return topo, errors.New(fmt.Sprintf("Failed to get value"))
+	}
+	if level == "INFO" {
+		switch x := value.(type) {
+		case string:
+			globerr = json.Unmarshal([]byte(x), &topo)
+		case []byte:
+			globerr = json.Unmarshal(x, &topo)
+		}
+	} else {
+		cclog.ComponentError("CCControlClient", "Host", hostname, ":", value)
+		switch x := value.(type) {
+		case string:
+			globerr = errors.New(x)
+		case []byte:
+			globerr = errors.New(string(x))
 		}
 	}
 	return topo, globerr
