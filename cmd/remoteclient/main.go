@@ -103,7 +103,7 @@ func main() {
 				fmt.Printf("Failed to get control %s of node %s: %v\n", rematch[1], cliopts["host"].(string), err.Error())
 				os.Exit(1)
 			}
-			fmt.Printf("Control %s at host %s (%s%s): %s\n", rematch[0], cliopts["host"].(string), rematch[2], rematch[3], v)
+			fmt.Printf("Control %s at host %s (%s-%s): %s\n", rematch[0], cliopts["host"].(string), rematch[2], rematch[3], v)
 			os.Exit(0)
 		} else {
 			fmt.Printf("Failed to parse control %s\n", cliopts["get"].(string))
