@@ -12,7 +12,7 @@ import (
 
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
 	lp "github.com/ClusterCockpit/cc-metric-collector/pkg/ccMetric"
-	topo "github.com/ClusterCockpit/cc-metric-collector/pkg/ccTopology"
+	topo "github.com/ClusterCockpit/cc-node-controller/pkg/ccTopology"
 	influx "github.com/influxdata/line-protocol/v2/lineprotocol"
 	"github.com/nats-io/nats.go"
 )
@@ -301,19 +301,20 @@ func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error
 	}
 	m := mlist[0]
 	if m.Name() != name {
-		return topo, errors.New(fmt.Sprintf("unexpected name received: %s (expected: %s)", m.Name(), name))
+		return topo, fmt.Errorf("unexpected name received: %s (expected: %s)", m.Name(), name)
 	}
 	if testhost, ok := m.GetTag("hostname"); !ok || testhost != hostname {
-		return topo, errors.New(fmt.Sprintf("failed to retrieve hostname or mismatched hostname: %s (expected %s, success %d)", testhost, hostname, ok));
+		return topo, fmt.Errorf("failed to retrieve hostname or mismatched hostname: %s (expected %s, success %v)", testhost, hostname, ok)
 	}
 	level, ok := m.GetTag("level")
 	if !ok {
-		return topo, errors.New(fmt.Sprintf("Failed to get level"))
+		return topo, fmt.Errorf("failed to get level")
 	}
-	value, ok := m.GetField("value");
+	value, ok := m.GetField("value")
 	if !ok {
-		return topo, errors.New(fmt.Sprintf("Failed to get value"))
+		return topo, fmt.Errorf("failed to get value")
 	}
+	fmt.Println(m.String())
 	if level == "INFO" {
 		switch x := value.(type) {
 		case string:
