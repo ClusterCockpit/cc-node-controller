@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
@@ -20,6 +21,7 @@ type NatsConfig struct {
 	Port                int    `json:"port"`
 	Username            string `json:"username,omitempty"`
 	Password            string `json:"password,omitempty"`
+	NkeyFile            string `json:"nkey_file,omitempty"`
 	InputSubjectPrefix  string `json:"input_subject_prefix,omitempty"`
 	InputSubject        string `json:"input_subject,omitempty"`
 	OutputSubjectPrefix string `json:"output_subject_prefix,omitempty"`
@@ -30,15 +32,27 @@ type NatsConfig struct {
 }
 
 func ConnectNats(config NatsConfig) (NatsConnection, error) {
+	var uinfo nats.Option = nil
 	c := NatsConnection{
 		conn:       nil,
 		sub:        nil,
 		ch:         nil,
 		outSubject: config.outSubject,
 	}
+	if len(config.Username) > 0 && len(config.Password) > 0 {
+		uinfo = nats.UserInfo(config.Username, config.Password)
+	} else if len(config.NkeyFile) > 0 {
+		_, err := os.Stat(config.NkeyFile)
+		if err == nil {
+			uinfo = nats.UserCredentials(config.NkeyFile)
+		} else {
+			cclog.ComponentError("NATS", "NKEY file", config.NkeyFile, "does not exist: %v", err.Error())
+			return c, err
+		}
+	}
 	uri := fmt.Sprintf("%s:%d", config.Hostname, config.Port)
 	cclog.ComponentDebug("NATS", "connecting to", uri)
-	conn, err := nats.Connect(uri)
+	conn, err := nats.Connect(uri, uinfo)
 	if err != nil {
 		return c, err
 	}
