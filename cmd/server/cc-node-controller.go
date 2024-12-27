@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -15,49 +16,21 @@ import (
 
 	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
-	influx "github.com/influxdata/line-protocol" // MIT license
+	// MIT license
 )
 
 var cc_node_control_hostname string = ""
 
-func toILP(event lp.CCMessage) string {
-	b := new(strings.Builder)
-	enc := influx.NewEncoder(b)
-	enc.Encode(event.ToPoint(map[string]bool{}))
-	// s := event.Name()
-	// tags := event.Tags()
-	// fields := event.Fields()
-	// if len(tags) > 0 {
-	// 	s += ","
-	// 	tlist := make([]string, 0, len(tags))
-	// 	for k, v := range tags {
-	// 		tlist = append(tlist, fmt.Sprintf("%s=%s", k, v))
-	// 	}
-	// 	s += strings.Join(tlist, ",")
-	// }
-	// if len(fields) > 0 {
-	// 	s += " "
-	// 	flist := make([]string, 0, len(fields))
-	// 	for k, v := range fields {
-	// 		flist = append(flist, fmt.Sprintf("%s=%v", k, v))
-	// 	}
-	// 	s += strings.Join(flist, ",")
-	// }
-	// s += fmt.Sprintf(" %d", event.Time().Unix())
-	return b.String()
-}
-
 func FromLineProtocol(metric string) (lp.CCMessage, error) {
-	handler := influx.NewMetricHandler()
-	parser := influx.NewParser(handler)
 
-	m, err := parser.Parse([]byte(metric))
+	list, err := lp.FromBytes([]byte(metric))
 	if err != nil {
 		return nil, err
 	}
-
-	cc := lp.FromInfluxMetric(m[0])
-	return cc, nil
+	if len(list) != 1 {
+		return nil, errors.New("string contains mutliple metrics")
+	}
+	return list[0], nil
 }
 
 func ProcessCommand(input lp.CCMessage) (lp.CCMessage, error) {
@@ -73,33 +46,33 @@ func ProcessCommand(input lp.CCMessage) (lp.CCMessage, error) {
 
 	var tid int64 = 0
 	var err error = nil
-	cclog.ComponentDebug("Sysfeatures", "Processing", toILP(input))
+	cclog.ComponentDebug("Sysfeatures", "Processing", input.ToLineProtocol(nil))
 	knob := input.Name()
 	t, ok := input.GetTag("type")
 	if !ok {
-		return createOutput(fmt.Sprintf("No 'type' tag in %s", toILP(input)))
+		return createOutput(fmt.Sprintf("No 'type' tag in %s", input.ToLineProtocol(nil)))
 	}
 	if t != "node" {
 		stid, ok := input.GetTag("type-id")
 		if !ok {
-			return createOutput(fmt.Sprintf("No 'type-id' tag in %s", toILP(input)))
+			return createOutput(fmt.Sprintf("No 'type-id' tag in %s", input.ToLineProtocol(nil)))
 		}
 		tid, err = strconv.ParseInt(stid, 10, 64)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s", toILP(input)))
+			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s", input.ToLineProtocol(nil)))
 		}
 	}
 	method, ok := input.GetTag("method")
 	if !ok {
-		return createOutput(fmt.Sprintf("No 'method' tag in %s", toILP(input)))
+		return createOutput(fmt.Sprintf("No 'method' tag in %s", input.ToLineProtocol(nil)))
 	}
 	if method != "PUT" && method != "GET" {
-		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", toILP(input)))
+		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input.ToLineProtocol(nil)))
 	}
 	if method == "PUT" {
 		value, ok := input.GetField("value")
 		if !ok {
-			return createOutput(fmt.Sprintf("No 'value' field in %s", toILP(input)))
+			return createOutput(fmt.Sprintf("No 'value' field in %s", input.ToLineProtocol(nil)))
 		}
 		v := fmt.Sprintf("%d", value)
 		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
@@ -130,7 +103,7 @@ func ProcessCommand(input lp.CCMessage) (lp.CCMessage, error) {
 		}
 		return resp, nil
 	}
-	return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", toILP(input)))
+	return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input.ToLineProtocol(nil)))
 }
 
 func ReadCli() map[string]string {
@@ -299,8 +272,8 @@ global_for:
 					}
 					if r != nil {
 						r.AddTag("hostname", cc_node_control_hostname)
-						cclog.ComponentDebug("LOOP", "sending response", toILP(r))
-						msg.Respond([]byte(toILP(r)))
+						cclog.ComponentDebug("LOOP", "sending response", r.ToLineProtocol(nil))
+						msg.Respond([]byte(r.ToLineProtocol(nil)))
 					}
 				}
 

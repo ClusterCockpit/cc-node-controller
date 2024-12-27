@@ -13,7 +13,6 @@ import (
 	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
 	topo "github.com/ClusterCockpit/cc-node-controller/pkg/ccTopology"
-	influx "github.com/influxdata/line-protocol/v2/lineprotocol"
 	"github.com/nats-io/nats.go"
 )
 
@@ -62,66 +61,9 @@ func NewCCControlClient(server_ip string, server_port int, input_subject, output
 }
 
 func NatsReceive(m *nats.Msg) []lp.CCMessage {
-	out := make([]lp.CCMessage, 0)
-	d := influx.NewDecoderWithBytes(m.Data)
-	for d.Next() {
-
-		// Decode measurement name
-		measurement, err := d.Measurement()
-		if err != nil {
-			msg := "_NatsReceive: Failed to decode measurement: " + err.Error()
-			cclog.ComponentError("CCControlClient", msg)
-			return nil
-		}
-
-		// Decode tags
-		tags := make(map[string]string)
-		for {
-			key, value, err := d.NextTag()
-			if err != nil {
-				msg := "_NatsReceive: Failed to decode tag: " + err.Error()
-				cclog.ComponentError("CCControlClient", msg)
-				return nil
-			}
-			if key == nil {
-				break
-			}
-			tags[string(key)] = string(value)
-		}
-
-		// Decode fields
-		fields := make(map[string]interface{})
-		for {
-			key, value, err := d.NextField()
-			if err != nil {
-				msg := "_NatsReceive: Failed to decode field: " + err.Error()
-				cclog.ComponentError("CCControlClient", msg)
-				cclog.ComponentError("CCControlClient", string(m.Data))
-
-				return nil
-			}
-			if key == nil {
-				break
-			}
-			fields[string(key)] = value.Interface()
-		}
-
-		// Decode time stamp
-		t, err := d.Time(influx.Nanosecond, time.Time{})
-		if err != nil {
-			msg := "_NatsReceive: Failed to decode time: " + err.Error()
-			cclog.ComponentError("CCControlClient", msg)
-			return nil
-		}
-
-		y, _ := lp.NewMessage(
-			string(measurement),
-			tags,
-			map[string]string{},
-			fields,
-			t,
-		)
-		out = append(out, y)
+	out, err := lp.FromBytes(m.Data)
+	if err != nil {
+		return nil
 	}
 	return out
 }

@@ -56,8 +56,8 @@ func ConnectNats(config NatsConfig) (NatsConnection, error) {
 }
 
 func PublishNats(conn NatsConnection, event lp.CCMessage) error {
-	cclog.ComponentDebug("NATS", "Publish", conn.outSubject, ":", toILP(event))
-	return conn.conn.Publish(conn.outSubject, []byte(toILP(event)))
+	cclog.ComponentDebug("NATS", "Publish", conn.outSubject, ":", event.ToLineProtocol(nil))
+	return conn.conn.Publish(conn.outSubject, []byte(event.ToLineProtocol(nil)))
 }
 
 func DisconnectNats(conn NatsConnection) {
