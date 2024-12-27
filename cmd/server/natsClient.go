@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
+	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
-	ccmetric "github.com/ClusterCockpit/cc-metric-collector/pkg/ccMetric"
 	"github.com/nats-io/nats.go"
 )
 
@@ -55,7 +55,7 @@ func ConnectNats(config NatsConfig) (NatsConnection, error) {
 	return c, nil
 }
 
-func PublishNats(conn NatsConnection, event ccmetric.CCMetric) error {
+func PublishNats(conn NatsConnection, event lp.CCMessage) error {
 	cclog.ComponentDebug("NATS", "Publish", conn.outSubject, ":", toILP(event))
 	return conn.conn.Publish(conn.outSubject, []byte(toILP(event)))
 }

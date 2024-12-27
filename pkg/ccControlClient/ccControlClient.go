@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
+	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
-	lp "github.com/ClusterCockpit/cc-metric-collector/pkg/ccMetric"
 	topo "github.com/ClusterCockpit/cc-node-controller/pkg/ccTopology"
 	influx "github.com/influxdata/line-protocol/v2/lineprotocol"
 	"github.com/nats-io/nats.go"
@@ -61,8 +61,8 @@ func NewCCControlClient(server_ip string, server_port int, input_subject, output
 	return n, nil
 }
 
-func NatsReceive(m *nats.Msg) []lp.CCMetric {
-	out := make([]lp.CCMetric, 0)
+func NatsReceive(m *nats.Msg) []lp.CCMessage {
+	out := make([]lp.CCMessage, 0)
 	d := influx.NewDecoderWithBytes(m.Data)
 	for d.Next() {
 
@@ -114,7 +114,7 @@ func NatsReceive(m *nats.Msg) []lp.CCMetric {
 			return nil
 		}
 
-		y, _ := lp.New(
+		y, _ := lp.NewMessage(
 			string(measurement),
 			tags,
 			map[string]string{},
@@ -183,7 +183,7 @@ func (c *ccControlClient) GetControls(hostname string) (CCControlList, error) {
 		"type-id":  "0",
 	}
 	name := "controls"
-	out, err := lp.New(name, tags, map[string]string{}, map[string]interface{}{"value": 0.0}, time.Now())
+	out, err := lp.NewGetControl(name, tags, map[string]string{}, time.Now())
 	if err != nil {
 		return outlist, fmt.Errorf("failed to create control message to %s to get controls", hostname)
 	}
@@ -283,7 +283,7 @@ func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error
 		"type-id":  "0",
 	}
 	name := "topology"
-	out, err := lp.New(name, tags, map[string]string{}, map[string]interface{}{"value": 0.0}, time.Now())
+	out, err := lp.NewGetControl(name, tags, map[string]string{}, time.Now())
 	if err != nil {
 		return topo, fmt.Errorf("failed to create control message to %s to get controls", hostname)
 	}
@@ -351,7 +351,7 @@ func (c *ccControlClient) GetControlValue(hostname, control string, device strin
 		"type-id":  deviceID,
 	}
 	name := control
-	out, err := lp.New(name, tags, map[string]string{}, map[string]interface{}{"value": 0.0}, time.Now())
+	out, err := lp.NewGetControl(name, tags, map[string]string{}, time.Now())
 	if err != nil {
 		return outstring, fmt.Errorf("failed to create control message to %s to get controls", hostname)
 	}
@@ -414,7 +414,7 @@ func (c *ccControlClient) SetControlValue(hostname, control string, device strin
 		"type-id":  deviceID,
 	}
 	name := control
-	out, err := lp.New(name, tags, map[string]string{}, map[string]interface{}{"value": value}, time.Now())
+	out, err := lp.NewPutControl(name, tags, map[string]string{}, value, time.Now())
 	if err != nil {
 		return fmt.Errorf("failed to create control message to %s to get controls", hostname)
 	}

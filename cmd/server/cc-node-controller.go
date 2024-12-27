@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/ClusterCockpit/cc-node-controller/pkg/sysfeatures"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,16 +11,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ClusterCockpit/cc-node-controller/pkg/sysfeatures"
+
+	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
-	ccmetric "github.com/ClusterCockpit/cc-metric-collector/pkg/ccMetric"
-	lp "github.com/influxdata/line-protocol" // MIT license
+	influx "github.com/influxdata/line-protocol" // MIT license
 )
 
 var cc_node_control_hostname string = ""
 
-func toILP(event ccmetric.CCMetric) string {
+func toILP(event lp.CCMessage) string {
 	b := new(strings.Builder)
-	enc := lp.NewEncoder(b)
+	enc := influx.NewEncoder(b)
 	enc.Encode(event.ToPoint(map[string]bool{}))
 	// s := event.Name()
 	// tags := event.Tags()
@@ -46,23 +47,23 @@ func toILP(event ccmetric.CCMetric) string {
 	return b.String()
 }
 
-func FromLineProtocol(metric string) (ccmetric.CCMetric, error) {
-	handler := lp.NewMetricHandler()
-	parser := lp.NewParser(handler)
+func FromLineProtocol(metric string) (lp.CCMessage, error) {
+	handler := influx.NewMetricHandler()
+	parser := influx.NewParser(handler)
 
 	m, err := parser.Parse([]byte(metric))
 	if err != nil {
 		return nil, err
 	}
 
-	cc := ccmetric.FromInfluxMetric(m[0])
+	cc := lp.FromInfluxMetric(m[0])
 	return cc, nil
 }
 
-func ProcessCommand(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
+func ProcessCommand(input lp.CCMessage) (lp.CCMessage, error) {
 
-	createOutput := func(errorString string) (ccmetric.CCMetric, error) {
-		resp, err := ccmetric.New(input.Name(), input.Tags(), input.Meta(), map[string]interface{}{"value": errorString}, time.Now())
+	createOutput := func(errorString string) (lp.CCMessage, error) {
+		resp, err := lp.NewLog(input.Name(), input.Tags(), input.Meta(), errorString, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
 			return resp, nil
@@ -137,6 +138,7 @@ func ReadCli() map[string]string {
 	cfg := flag.String("config", "./config.json", "Path to configuration file")
 	logfile := flag.String("log", "stderr", "Path for logfile")
 	debug := flag.Bool("debug", false, "Activate debug output")
+	pretend := flag.Bool("pretend", false, "Do not actually do anything")
 	flag.Parse()
 	m = make(map[string]string)
 	m["configfile"] = *cfg
@@ -145,6 +147,11 @@ func ReadCli() map[string]string {
 		m["debug"] = "true"
 	} else {
 		m["debug"] = "false"
+	}
+	if *pretend {
+		m["pretend"] = "true"
+	} else {
+		m["pretend"] = "false"
 	}
 	return m
 }
@@ -256,7 +263,7 @@ global_for:
 					cclog.ComponentDebug("LOOP", "got interrupt, exiting...")
 					break global_for
 				default:
-					var r ccmetric.CCMetric
+					var r lp.CCMessage
 					cclog.ComponentDebug("LOOP", "parsing", line)
 					if len(line) == 0 {
 						continue

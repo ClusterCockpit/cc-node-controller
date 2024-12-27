@@ -7,8 +7,8 @@ import (
 
 	topo "github.com/ClusterCockpit/cc-node-controller/pkg/ccTopology"
 
+	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
-	ccmetric "github.com/ClusterCockpit/cc-metric-collector/pkg/ccMetric"
 )
 
 type CCControlTopology struct {
@@ -16,9 +16,9 @@ type CCControlTopology struct {
 	CpuInfo   topo.CpuInformation  `json:"cpu_info"`
 }
 
-func ProcessTopologyConfig(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
-	createOutput := func(str string, tags map[string]string) (ccmetric.CCMetric, error) {
-		resp, err := ccmetric.New("topology", tags, map[string]string{}, map[string]interface{}{"value": str}, time.Now())
+func ProcessTopologyConfig(input lp.CCMessage) (lp.CCMessage, error) {
+	createOutput := func(str string, tags map[string]string) (lp.CCMessage, error) {
+		resp, err := lp.NewLog("topology", tags, map[string]string{}, str, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
 			return resp, nil
@@ -56,9 +56,9 @@ type CCControlList struct {
 	Controls []CCControlListEntry `json:"controls"`
 }
 
-func ProcessControlsConfig(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
-	createOutput := func(str string, tags map[string]string) (ccmetric.CCMetric, error) {
-		resp, err := ccmetric.New("controls", tags, map[string]string{}, map[string]interface{}{"value": str}, time.Now())
+func ProcessControlsConfig(input lp.CCMessage) (lp.CCMessage, error) {
+	createOutput := func(str string, tags map[string]string) (lp.CCMessage, error) {
+		resp, err := lp.NewLog("controls", tags, map[string]string{}, str, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
 			return resp, nil

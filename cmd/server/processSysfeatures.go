@@ -1,20 +1,21 @@
 package main
 
 import (
-	"github.com/ClusterCockpit/cc-node-controller/pkg/sysfeatures"
 	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/ClusterCockpit/cc-node-controller/pkg/sysfeatures"
+
+	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
 	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
-	ccmetric "github.com/ClusterCockpit/cc-metric-collector/pkg/ccMetric"
 )
 
-func ProcessSysfeatures(input ccmetric.CCMetric) (ccmetric.CCMetric, error) {
+func ProcessSysfeatures(input lp.CCMessage) (lp.CCMessage, error) {
 
-	createOutput := func(errorString string, tags map[string]string) (ccmetric.CCMetric, error) {
-		resp, err := ccmetric.New("knobs", tags, map[string]string{}, map[string]interface{}{"value": errorString}, time.Now())
+	createOutput := func(errorString string, tags map[string]string) (lp.CCMessage, error) {
+		resp, err := lp.NewLog("knobs", tags, map[string]string{}, errorString, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
 			return resp, errors.New(errorString)
