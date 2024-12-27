@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -228,55 +227,47 @@ global_for:
 			cclog.ComponentDebug("LOOP", "got interrupt, exiting...")
 			break global_for
 		case msg := <-conn.ch:
-			data := string(msg.Data)
-			cclog.ComponentDebug("LOOP", "got data", data)
-			for _, line := range strings.Split(data, "\n") {
-				select {
-				case <-shutdownSignal:
-					cclog.ComponentDebug("LOOP", "got interrupt, exiting...")
-					break global_for
-				default:
-					var r lp.CCMessage
-					cclog.ComponentDebug("LOOP", "parsing", line)
-					if len(line) == 0 {
-						continue
-					}
-					m, err := FromLineProtocol(line)
-					if err != nil {
-						cclog.Error(err.Error())
-						continue
-					}
-					if h, ok := m.GetTag("hostname"); ok && h != hostname {
-						cclog.ComponentDebug("LOOP", "Non-local command, skipping...")
-						continue
-					}
-					cclog.ComponentDebug("LOOP", "processing", line)
-					switch m.Name() {
-					case "topology":
-						cclog.ComponentDebug("LOOP", "Got topology message")
-						r, err = ProcessTopologyConfig(m)
-						if err != nil {
-							cclog.Error(err.Error())
-						}
-					case "controls":
-						cclog.ComponentDebug("LOOP", "Got controls message")
-						r, err = ProcessControlsConfig(m)
-						if err != nil {
-							cclog.Error(err.Error())
-						}
+			//data := string(msg.Data)
+			data, err := lp.FromBytes(msg.Data)
+			if err == nil {
+				for _, m := range data {
+					var r lp.CCMessage = nil
+					select {
+					case <-shutdownSignal:
+						cclog.ComponentDebug("LOOP", "got interrupt, exiting...")
+						break global_for
 					default:
-						r, err = ProcessCommand(m)
-						if err != nil {
-							cclog.Error(err.Error())
+						if h, ok := m.GetTag("hostname"); ok && h != hostname {
+							cclog.ComponentDebug("LOOP", "Non-local command, skipping...")
+							continue
 						}
-					}
-					if r != nil {
-						r.AddTag("hostname", cc_node_control_hostname)
-						cclog.ComponentDebug("LOOP", "sending response", r.ToLineProtocol(nil))
-						msg.Respond([]byte(r.ToLineProtocol(nil)))
+						cclog.ComponentDebug("LOOP", "processing", m.String())
+						switch m.Name() {
+						case "topology":
+							cclog.ComponentDebug("LOOP", "Got topology message")
+							r, err = ProcessTopologyConfig(m)
+							if err != nil {
+								cclog.Error(err.Error())
+							}
+						case "controls":
+							cclog.ComponentDebug("LOOP", "Got controls message")
+							r, err = ProcessControlsConfig(m)
+							if err != nil {
+								cclog.Error(err.Error())
+							}
+						default:
+							r, err = ProcessCommand(m)
+							if err != nil {
+								cclog.Error(err.Error())
+							}
+						}
+						if r != nil {
+							r.AddTag("hostname", cc_node_control_hostname)
+							cclog.ComponentDebug("LOOP", "sending response", r.ToLineProtocol(nil))
+							msg.Respond([]byte(r.ToLineProtocol(nil)))
+						}
 					}
 				}
-
 			}
 		}
 	}
