@@ -19,6 +19,8 @@ func ReadCli() map[string]interface{} {
 	get := flag.String("get", "", "Get value of control from remote node (name@type-typeid)")
 	set := flag.String("set", "", "Set value of control from remote node (name@type-typeid=value)")
 	host := flag.String("host", "", "Hostname of remote node")
+	inputsub := flag.String("input", "cc-events", "Input subject from NATS")
+	outputsub := flag.String("output", "cc-control", "Output subject from NATS")
 
 	flag.Parse()
 	m := make(map[string]interface{})
@@ -27,6 +29,8 @@ func ReadCli() map[string]interface{} {
 	m["set"] = *set
 	m["port"] = *port
 	m["host"] = *host
+	m["input"] = *inputsub
+	m["output"] = *outputsub
 	if *debug {
 		m["debug"] = true
 	} else {
@@ -50,7 +54,7 @@ func main() {
 	setregex := regexp.MustCompile(`^([a-z0-9\._]+)@([a-z]+)-([0-9]+)=(.+)$`)
 	cliopts := ReadCli()
 
-	c, err := cccontrol.NewCCControlClient(cliopts["server"].(string), cliopts["port"].(int), "cc-events", "cc-control")
+	c, err := cccontrol.NewCCControlClient(cliopts["server"].(string), cliopts["port"].(int), cliopts["input"].(string), cliopts["output"].(string))
 	if err != nil {
 		fmt.Println(err.Error())
 	}

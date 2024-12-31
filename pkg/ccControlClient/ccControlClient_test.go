@@ -8,7 +8,7 @@ import (
 )
 
 func TestGetControls(t *testing.T) {
-	c, err := NewCCControlClient("127.0.01", 4222, "cc-events", "cc-control")
+	c, err := NewCCControlClient("127.0.0.1", 4222, "cc-events", "cc-control")
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -29,7 +29,7 @@ func TestGetControls(t *testing.T) {
 
 func TestGetTopology(t *testing.T) {
 	target := "nuc"
-	c, err := NewCCControlClient("127.0.01", 4222, "cc-events", "cc-control")
+	c, err := NewCCControlClient("127.0.0.1", 4222, "cc-events", "cc-control")
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -52,7 +52,7 @@ func TestGetControlValue(t *testing.T) {
 	device := "socket"
 	deviceID := "0"
 
-	c, err := NewCCControlClient("127.0.01", 4222, "cc-events", "cc-control")
+	c, err := NewCCControlClient("127.0.0.1", 4222, "cc-events", "cc-control")
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -74,7 +74,7 @@ func TestSetControlValue(t *testing.T) {
 	deviceID := "0"
 	var outerr error = nil
 
-	c, err := NewCCControlClient("127.0.01", 4222, "cc-events", "cc-control")
+	c, err := NewCCControlClient("127.0.0.1", 4222, "cc-events", "cc-control")
 	if err != nil {
 		t.Error(err.Error())
 	}

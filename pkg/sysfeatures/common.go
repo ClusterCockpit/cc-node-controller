@@ -2,7 +2,7 @@ package sysfeatures
 
 /*
 #cgo CFLAGS: -I./likwid -DLIKWID_WITH_SYSFEATURES
-#cgo LDFLAGS: -L/home/unrz139/.modules/likwid-5.3.0/lib -Wl,-rpath=/home/unrz139/.modules/likwid-5.3.0/lib -Wl,--unresolved-symbols=ignore-in-object-files -llikwid
+#cgo LDFLAGS: -L/tmp/likwid-install/lib -Wl,-rpath=/tmp/likwid-install/lib -Wl,--unresolved-symbols=ignore-in-object-files -llikwid
 #include <stdlib.h>
 #ifndef LIKWID_WITH_SYSFEATURES
 #define LIKWID_WITH_SYSFEATURES

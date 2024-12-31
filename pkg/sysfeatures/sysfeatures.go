@@ -84,6 +84,17 @@ func SysFeaturesClose() {
 	}
 }
 
+var LikwidDeviceTypeNames map[uint32]string = map[uint32]string{
+	0:                              "invalid",
+	uint32(C.DEVICE_TYPE_HWTHREAD): "hwthread",
+	uint32(C.DEVICE_TYPE_CORE):     "core",
+	uint32(C.DEVICE_TYPE_LLC):      "LLC",
+	uint32(C.DEVICE_TYPE_NUMA):     "numa",
+	uint32(C.DEVICE_TYPE_DIE):      "die",
+	uint32(C.DEVICE_TYPE_SOCKET):   "socket",
+	uint32(C.DEVICE_TYPE_NODE):     "node",
+}
+
 func SysFeaturesList() ([]SysFeature, error) {
 	if !_likwid_sysfeatures.inititalized {
 		return nil, fmt.Errorf("SysFeatures not initialized")
@@ -113,7 +124,7 @@ func SysFeaturesList() ([]SysFeature, error) {
 				Name:        C.GoString(csf.name),
 				Category:    C.GoString(csf.category),
 				Devtype:     int(csf._type),
-				DevtypeName: C.GoString(C.device_type_name(csf._type)),
+				DevtypeName: LikwidDeviceTypeNames[uint32(csf._type)],
 				Description: C.GoString(csf.description),
 				ReadOnly:    b_rdonly,
 				WriteOnly:   b_wronly,
