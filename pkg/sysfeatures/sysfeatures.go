@@ -149,6 +149,7 @@ func SysFeaturesGetDevice(name string, dev LikwidDevice) (string, error) {
 	if cerr != 0 {
 		return "", fmt.Errorf("failed to get feature '%s' for device (%s, %d)", name, dev.Devname, dev.Id)
 	}
+	defer C.free(unsafe.Pointer(val))
 	return C.GoString(val), nil
 }
 
@@ -169,7 +170,6 @@ func SysFeaturesGet(name string, devicetype int, deviceidx int) (string, error) 
 }
 
 func SysFeaturesSetDevice(name string, dev LikwidDevice, value string) error {
-	//var val *C.char
 	if !_likwid_sysfeatures.inititalized {
 		return fmt.Errorf("SysFeatures not initialized")
 	}
