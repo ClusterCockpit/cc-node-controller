@@ -74,7 +74,7 @@ func LikwidDeviceCreate(devtype int, devidx int) (LikwidDevice, error) {
 	}
 	dev = LikwidDevice{
 		Devtype: devtype,
-		Devname: C.GoString(C.device_type_name(ld._type)),
+		Devname: C.GoString(C.likwid_device_type_name(ld._type)),
 		Id:      id,
 		_raw:    ld,
 	}
@@ -83,7 +83,7 @@ func LikwidDeviceCreate(devtype int, devidx int) (LikwidDevice, error) {
 
 func LikwidDeviceCreateByName(devtype string, devidx int) (LikwidDevice, error) {
 	for i := int(C.MIN_DEVICE_TYPE); i < int(C.MAX_DEVICE_TYPE); i++ {
-		s := C.GoString(C.device_type_name(C.LikwidDeviceType(i)))
+		s := C.GoString(C.likwid_device_type_name(C.LikwidDeviceType(i)))
 		if s == devtype {
 			return LikwidDeviceCreate(i, devidx)
 		}
