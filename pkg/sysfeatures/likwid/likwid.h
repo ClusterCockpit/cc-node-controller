@@ -5,27 +5,26 @@
  *
  *      Description:  Header File of likwid API
  *
- *      Version:   <VERSION>
- *      Released:  <DATE>
+ *      Version:   5.4.1
+ *      Released:  09.12.2024
  *
  *      Authors:  Thomas Gruber (tr), thomas.roehl@googlemail.com
  *
  *      Project:  likwid
  *
- *      Copyright (C) 2016 RRZE, University Erlangen-Nuremberg
+ *      Copyright (C) 2024 RRZE, University Erlangen-Nuremberg
  *
- *      This program is free software: you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option) any
- * later version.
+ *      This program is free software: you can redistribute it and/or modify it under
+ *      the terms of the GNU General Public License as published by the Free Software
+ *      Foundation, either version 3 of the License, or (at your option) any later
+ *      version.
  *
- *      This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ *      This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ *      WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+ *      PARTICULAR PURPOSE.  See the GNU General Public License for more details.
  *
- *      You should have received a copy of the GNU General Public License along
- * with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *      You should have received a copy of the GNU General Public License along with
+ *      this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * =======================================================================================
  */
@@ -35,8 +34,6 @@
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
-
-#include <bstrlib.h>
 
 #define DEBUGLEV_ONLY_ERROR 0
 #define DEBUGLEV_INFO 1
@@ -677,7 +674,7 @@ system. Example domains are NUMA nodes, CPU sockets/packages or LLC (Last Level
 Cache) cache domains. \extends AffinityDomains
 */
 typedef struct {
-  bstring tag; /*!< \brief Bstring with the ID for the affinity domain.
+  char* tag; /*!< \brief Bstring with the ID for the affinity domain.
                   Currently possible values: N (node), SX (socket/package X), CX
                   (LLC cache domain X) and MX (memory domain X) */
   uint32_t numberOfProcessors; /*!< \brief Number of HW threads in the domain
@@ -1266,7 +1263,7 @@ extern double perfmon_getMetricOfRegionThread(int region, int metricId,
 ################################################################################
 */
 
-/** \addtogroup PerfGroup performance group module
+/** \addtogroup PerfGroup Performance group module
  *  @{
  */
 
@@ -1314,7 +1311,7 @@ Remove a counter and event combination from a group
 @param [in] ginfo GroupInfo struct
 @param [in] counter String with counter name
 */
-void perfgroup_removeEvent(GroupInfo *ginfo, char *counter)
+int perfgroup_removeEvent(GroupInfo *ginfo, char *counter)
     __attribute__((visibility("default")));
 
 /*! \brief Add a metric to the group
@@ -1333,7 +1330,7 @@ Remove a metric from a group
 @param [in] ginfo GroupInfo struct
 @param [in] mname String with metric name/description
 */
-void perfgroup_removeMetric(GroupInfo *ginfo, char *mname)
+int perfgroup_removeMetric(GroupInfo *ginfo, char *mname)
     __attribute__((visibility("default")));
 
 /*! \brief Get the event string of a group needed for perfmon_addEventSet
@@ -1687,7 +1684,7 @@ typedef struct {
     double uncoreMinFreq; /*!< \brief Minimal uncore frequency */
     double uncoreMaxFreq; /*!< \brief Maximal uncore frequency */
     uint8_t perfBias; /*!< \brief Performance energy bias */
-    int statusRegWidth;
+    int statusRegWidth; /*!< \brief Register width of the status register */
     int numDomains; /*!< \brief Number of RAPL domains */
     PowerDomain domains[NUM_POWER_DOMAINS]; /*!< \brief List of power domains */
 } PowerInfo;
@@ -2195,6 +2192,7 @@ typedef struct {
   int pciDev; /*!< \brief PCI device (also known as slot) identifier of the
                  device */
   int pciDom; /*!< \brief PCI domain identifier of the device */
+  int pciFunc; /*!< \brief PCI function identifier of the device */
   int maxBlockRegs;  /*!< \brief Maximum number of 32-bit registers available to
                         a thread block */
   int numMultiProcs; /*!< \brief Number of multiprocessors on the device */
@@ -2245,6 +2243,9 @@ extern void topology_cuda_finalize(void) __attribute__((visibility("default")));
 */
 extern CudaTopology_t get_cudaTopology(void)
     __attribute__((visibility("default")));
+
+/** @}*/
+
 
 /*
 ################################################################################
@@ -2713,7 +2714,7 @@ int nvmon_returnGroups(int nrgroups, char **groups, char **shortinfos,
 # Performance monitoring for AMD GPUs related functions
 ################################################################################
 */
-/** \addtogroup Performance monitoring for AMD GPUs
+/** \addtogroup Rocmon Performance monitoring for AMD GPUs
  *  @{
  */
 #ifdef LIKWID_WITH_ROCMON
@@ -2783,10 +2784,24 @@ typedef struct {
 /** \brief Pointer for exporting the GpuTopology data structure */
 typedef RocmTopology *RocmTopology_t;
 
+/*! \brief Initialize ROCM topology
+
+@return 0 on success and -(errno) for error
+*/
 int topology_rocm_init(void) __attribute__((visibility("default")));
+
+/*! \brief Finalize ROCM topology */
 void topology_rocm_finalize(void) __attribute__((visibility("default")));
+
+/*! \brief Get the ROCM topology 
+
+@return Pointer to ROCM topology (or NULL in case of errors)
+*/
 RocmTopology_t get_rocmTopology(void)
     __attribute__((visibility("default")));
+
+/** @}*/
+
 
 /*
 ################################################################################
@@ -2794,7 +2809,7 @@ RocmTopology_t get_rocmTopology(void)
 ################################################################################
 */
 
-/** \addtogroup ROCM AMD GPU monitoring API module for GPUs
+/** \addtogroup Rocmon AMD GPU monitoring API module for GPUs
  *  @{
  */
 
@@ -2813,13 +2828,16 @@ typedef struct {
 Output list from rocmon_getEventsOfGpu with all supported events
 */
 typedef struct {
-  Event_rocm_t *events;
-  int numEvents;
+  Event_rocm_t *events; /*!< \brief List of events */
+  int numEvents; /*!< \brief Number of events */
 } EventList_rocm;
+/*! \brief Pointer to Rocmon event list */
 typedef EventList_rocm *EventList_rocm_t;
 
+/*! \brief Set verbosity level of ROCMON interface */
 void rocmon_setVerbosity(int level) __attribute__((visibility("default")));
-/*! \brief Initialize the Nvidia GPU performance monitoring facility (Nvmon)
+
+/*! \brief Initialize the AMD ROCm GPU performance monitoring facility (Rocmn)
 
 Initialize the AMD GPU performance monitoring feature by creating basic data
 structures. The ROCM and rocprofiler library paths need to be in LD_LIBRARY_PATH to be
@@ -2853,7 +2871,7 @@ int rocmon_addEventSet(const char *eventString, int *gid)
 
 Stops the currently running counters, switches the eventSet by setting up the
 counters and start the counters.
-@param [in] newgroupId of group that should be switched to.
+@param [in] newGroupId of group that should be switched to.
 @return 0 on success and -(thread_id+1) for error
 */
 int rocmon_switchActiveGroup(int newGroupId)
@@ -3054,7 +3072,7 @@ int rocmon_returnGroups(int nrgroups, char **groups, char **shortinfos,
 
 /** @}*/
 
-/** \addtogroup RocmonMarkerAPI Marker API module for GPUs
+/** \addtogroup RocMarkerAPI Marker API module for GPUs
  *  @{
  */
 
@@ -3185,6 +3203,11 @@ int rocmon_getNumberOfRegions(void) __attribute__((visibility("default")));
 @return Group ID of region
 */
 int rocmon_getGroupOfRegion(int region) __attribute__((visibility("default")));
+/*! \brief Get the tag string of a region
+
+@param [in] region ID of region
+@return Tag strng of region (or NULL for invalid region IDs)
+*/
 char *rocmon_getTagOfRegion(int region) __attribute__((visibility("default")));
 /*! \brief Get the number of events of a region
 @param [in] region ID of region
@@ -3214,49 +3237,75 @@ double rocmon_getMetricOfRegionGpu(int region, int metricId, int gpuId)
 
 #ifdef LIKWID_WITH_SYSFEATURES
 
+/** \addtogroup Devices Device management
+ *  @{
+ *
+ * \details
+ * Each topological entity of the system is represented as LIKWID device
+ * to explicity address them in the various tools. This module provides
+ * functions to create LIKWID devices.
+ */
+
+/*! 
+   \brief List of valid LIKWID device types
+*/
 typedef enum {
-    DEVICE_TYPE_INVALID,
-    DEVICE_TYPE_HWTHREAD,
-    DEVICE_TYPE_CORE,
-    DEVICE_TYPE_LLC,
-    DEVICE_TYPE_NUMA,
-    DEVICE_TYPE_DIE,
-    DEVICE_TYPE_SOCKET,
-    DEVICE_TYPE_NODE,
+    DEVICE_TYPE_INVALID, /*!< \brief invalid device */
+    DEVICE_TYPE_HWTHREAD, /*!< \brief hardware thread device */
+    DEVICE_TYPE_CORE, /*!< \brief CPU core device */
+    DEVICE_TYPE_LLC, /*!< \brief last level cache device */
+    DEVICE_TYPE_NUMA, /*!< \brief NUMA node device */
+    DEVICE_TYPE_DIE, /*!< \brief CPU die device */
+    DEVICE_TYPE_SOCKET, /*!< \brief CPU socket device */
+    DEVICE_TYPE_NODE, /*!< \brief whole node device */
 #ifdef LIKWID_WITH_NVMON
-    DEVICE_TYPE_NVIDIA_GPU,
+    DEVICE_TYPE_NVIDIA_GPU, /*!< \brief Nvidia GPU device */
 #endif
 #ifdef LIKWID_WITH_ROCMON
-    DEVICE_TYPE_AMD_GPU,
+    DEVICE_TYPE_AMD_GPU, /*!< \brief AMD GPU device */
 #endif
-    MAX_DEVICE_TYPE,
+    MAX_DEVICE_TYPE, /*!< \brief maximal device type */
 } LikwidDeviceType;
+
+/*! 
+   \brief minimal device type.
+*/
 #define MIN_DEVICE_TYPE DEVICE_TYPE_HWTHREAD
 
-
+/*! \brief Structure holding a Likwid device
+ *
+ * Likwid devices are the new way to address a single topological entity in the
+ * system.
+ */
 typedef struct {
-    LikwidDeviceType type;
+    LikwidDeviceType type; /*!< \brief Likwid device type */
     union {
         struct {
-            int id;
-        } simple;
+            int id;  /*!< \brief Integer ID */
+        } simple; /*!< \brief Simple ID of device consisting only of a single integer */
         struct {
-            int16_t pci_domain;
-            int8_t pci_bus;
-            int8_t pci_dev;
-            int8_t pci_func;
-        } pci;
-    } id;
-    int internal_id;
+            uint16_t pci_domain; /*!< \brief PCI domain*/
+            uint8_t pci_bus; /*!< \brief PCI bus*/
+            uint8_t pci_dev; /*!< \brief PCI device*/
+            uint8_t pci_func; /*!< \brief PCI function*/
+        } pci; /*!< \brief PCI ID for external devices like GPUs */
+    } id; /*!< \brief ID of device */
+    int internal_id; /*!< \brief Internal ID for the device */
 } _LikwidDevice;
+/*! \brief Pointer to a Likwid device */
 typedef _LikwidDevice* LikwidDevice_t;
 
+/*! \brief Structure holding a list of Likwid devices
+*/
 typedef struct {
-    int num_devices;
-    LikwidDevice_t devices;
+    int num_devices; /*!< \brief Number of devices */
+    LikwidDevice_t *devices; /*!< \brief List of devices */
 } _LikwidDeviceList;
+/*! \brief Pointer to a Likwid device list */
 typedef _LikwidDeviceList* LikwidDeviceList_t;
 
+/*! \brief List of device type names
+*/
 static char* LikwidDeviceTypeNames[MAX_DEVICE_TYPE] = {
     [DEVICE_TYPE_INVALID] = "invalid",
     [DEVICE_TYPE_HWTHREAD] = "hwthread",
@@ -3274,45 +3323,174 @@ static char* LikwidDeviceTypeNames[MAX_DEVICE_TYPE] = {
 #endif
 };
 
-int likwid_device_create(LikwidDeviceType type, int id, LikwidDevice_t* device) __attribute__ ((visibility ("default") ));
-void likwid_device_destroy(LikwidDevice_t device) __attribute__ ((visibility ("default") ));
-char* device_type_name(LikwidDeviceType type) __attribute__ ((visibility ("default") ));
+/*!  \brief Read LikwidDevice selection string and create specified devices.
 
+Read the LikwidDevice selection string and creates list with created devices.
+The format is 'type:id_list'. 'type' is N (node), S (socket), C (CPU core), T (thread),
+M (NUMA node), D (die), GN (Nvidia GPU), GA (AMD GPU). N does not have id_list,
+since there is always one node only. 'id_list' is a comma separated list of
+integers or integer ranges specified as '2-15' (inclusive bounds).
+GPUs may also use PCI adresses (e.g. 00000000:20:1f:0) instead of integer numbers.
+
+@param [in] str LikwidDevice selection string
+@param [out] dev_list Created device list (in case of success).
+@return error code (<0 on failure)
+*/
+int likwid_devstr_to_devlist(const char *str, LikwidDeviceList_t *dev_list)
+    __attribute__((visibility("default")));
+
+/*! \brief Create a new device
+
+@param [in] type Device type
+@param [in] id Device ID as int
+@param [out] device Likwid device struct
+@return error code (<0 on failure)
+*/
+int likwid_device_create(LikwidDeviceType type, int id, LikwidDevice_t* device) __attribute__ ((visibility ("default") ));
+/*! \brief Create a new device but use a string ID
+
+This function allows the specification of devices that are not addressable with
+a simple integer ID like GPUs, where the PCI address is the only unique identifier.
+
+@param [in] type Device type
+@param [in] id Device ID as string
+@param [out] device Likwid device struct
+@return error code (<0 on failure)
+*/
+int likwid_device_create_from_string(LikwidDeviceType type, const char *id, LikwidDevice_t* device) __attribute__ ((visibility ("default") ));
+/*! \brief Destroy LIKWID device
+
+@param [in] device Likwid device struct
+*/
+void likwid_device_destroy(LikwidDevice_t device) __attribute__ ((visibility ("default") ));
+/*! \brief Get the string describing a device type
+
+@param [in] type Likwid device type
+@return string describing the device type like 'hwthread', 'socket', ...
+*/
+const char *likwid_device_type_name(LikwidDeviceType type) __attribute__ ((visibility ("default") ));
+/*! \brief Get PCI address string for device
+
+@param [in] buf string buffer
+@param [in] size size of string buffer
+@param [in] device Likwid device 
+*/
+void likwid_device_fmt_pci(char *buf, size_t size, LikwidDevice_t device) __attribute__ ((visibility ("default") ));
+/*! \brief Get available device strings.
+
+Get a list of available devices. The strings in the list returned do not contain
+the device type prefix (i.e. "N:", "C:", etc.).
+A device is considered available if it belongs to the current CPUset.
+In order to get a list of all devices, use 'likwid_device_get_all' instead.
+
+@params [in] type Likwid device type
+@params [out] string list of all available devices for the type specified
+@params [out] number of list entries.
+@return error code (<0 on failure)
+*/
+int likwid_device_get_available(LikwidDeviceType type, char ***id_list, size_t *id_list_count) __attribute__((visibility ("default") ));
+/*! \brief Get all device strings.
+
+Get a list of all devices. The strings in the list returned do not contain
+the device type prefix (i.e. "N:", "C:", etc.).
+This functions returns all devices regardless of the current CPUset.
+In order to get a list of only available devices, use 'likwid_device_get_all'
+instead.
+
+@params [in] type Likwid device type
+@params [out] string list of all available devices for the type specified
+@params [out] number of list entries.
+@return error code (<0 on failure)
+*/
+int likwid_device_get_all(LikwidDeviceType type, char ***id_list, size_t *id_list_count) __attribute__((visibility ("default") ));
+
+/** @}*/
+
+/** \addtogroup Sysfeatures Manipulate system features
+ *  @{
+ */
+
+/*! \brief Structure holding a system feature specification
+ *
+ * A system feature specified a single "knob" for retrival and manipulation and
+ * each has a name, is categorized and has a description. A system feature is
+ * attached/valid/suitable for a single device type, e.g. some exist per
+ * hardware threads, some others only once per CPU socket. Some features can only
+ * be read and some only be written/set.
+ */
 typedef struct {
-    char* name;
-    char* category;
-    char* description;
-    LikwidDeviceType type;
-    unsigned int readonly:1;
-    unsigned int writeonly:1;
+    char* name; /*!< \brief Name of feature */
+    char* category; /*!< \brief Category of feature */
+    char* description; /*!< \brief Description of feature */
+    LikwidDeviceType type; /*!< \brief Usable for these Likwid device type */
+    unsigned int readonly:1; /*!< \brief Feature is read-only */
+    unsigned int writeonly:1; /*!< \brief Feature is write-only */
 } LikwidSysFeature;
 
+/*! \brief Structure holding a list of system feature specifications
+*/
 typedef struct {
-    int num_features;
-    LikwidSysFeature* features;
+    int num_features; /*!< \brief Number of features */
+    LikwidSysFeature* features; /*!< \brief List of features */
 } LikwidSysFeatureList;
 
 
-#define SYSFEATURE_PCI_DEVICE_TO_ID(domain, bus, slot, func) \
-    ((((uint16_t)(domain))<<16)|(((uint8_t)(bus))<<8)|(((((uint8_t)(slot)) & 0x1f) << 3) | (((uint8_t)(func)) & 0x07)))
-#define SYSFEATURES_ID_TO_PCI_DOMAIN(id) (((id) >> 16) & 0xFFFF)
-#define SYSFEATURES_ID_TO_PCI_BUS(id) (((id) >> 8) & 0xFF)
-#define SYSFEATURES_ID_TO_PCI_SLOT(id) (((id) >> 3) & 0x1F)
-#define SYSFEATURES_ID_TO_PCI_FUNC(id) ((id) & 0x07)
+/*! \brief Initialize the sysfeatures module
 
-
-
+@return error code (<0 on failure)
+*/
 int likwid_sysft_init(void) __attribute__ ((visibility ("default") ));
 
+/*! \brief Get the list of all features provided for the current system
+
+@param [out] list List of features
+@return error code (<0 on failure)
+*/
 int likwid_sysft_list(LikwidSysFeatureList *list) __attribute__ ((visibility ("default") ));
+/*! \brief Return the list of features
+
+@param [in] list List of features
+*/
 void likwid_sysft_list_return(LikwidSysFeatureList *list) __attribute__ ((visibility ("default") ));
 
+/*! \brief Get the value for a specific feature for a specific device
+
+@param [in] feature Get the value for this feature
+@param [in] device Get the value for this device
+@param [out] value Returned value as string
+@return error code (<0 on failure)
+*/
 int likwid_sysft_get(const LikwidSysFeature *feature, const LikwidDevice_t device, char **value) __attribute__ ((visibility ("default") ));
+/*! \brief Get the value for a specific feature for a specific device by using the feature name
+
+@param [in] name Get the value for this feature (category.name or just name if unique)
+@param [in] device Get the value for this device
+@param [out] value Returned value as string
+@return error code (<0 on failure)
+*/
 int likwid_sysft_getByName(const char *name, const LikwidDevice_t device, char** value) __attribute__ ((visibility ("default") ));
+/*! \brief Modify the value for a specific feature for a specific device
+
+@param [in] feature Modify the value for this feature
+@param [in] device Modify the value for this device
+@param [in] value New value for the feature
+@return error code (<0 on failure)
+*/
 int likwid_sysft_modify(const LikwidSysFeature* feature, const LikwidDevice_t device, const char* value) __attribute__ ((visibility ("default") ));
+/*! \brief Modify the value for a specific feature for a specific device by using the feature name
+
+@param [in] name Modify the value for this feature (category.name or just name if unique)
+@param [in] device Modify the value for this device
+@param [out] value New value for the feature
+@return error code (<0 on failure)
+*/
 int likwid_sysft_modifyByName(const char* name, const LikwidDevice_t device, const char* value) __attribute__ ((visibility ("default") ));
 
+/*! \brief Finalize the sysfeatures module
+
+*/
 void likwid_sysft_finalize(void) __attribute__ ((visibility ("default") ));
+/** @}*/
 #endif /* LIKWID_WITH_SYSFEATURES */
 
 #ifdef __cplusplus

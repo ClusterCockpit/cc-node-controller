@@ -5,14 +5,14 @@
  *
  *      Description:  Header File of likwid Marker API
  *
- *      Version:   5.3
- *      Released:  10.11.2023
+ *      Version:   5.4.1
+ *      Released:  09.12.2024
  *
  *      Authors:  Thomas Gruber (tg), thomas.roehl@googlemail.com
  *
  *      Project:  likwid
  *
- *      Copyright (C) 2023 RRZE, University Erlangen-Nuremberg
+ *      Copyright (C) 2024 RRZE, University Erlangen-Nuremberg
  *
  *      This program is free software: you can redistribute it and/or modify it under
  *      the terms of the GNU General Public License as published by the Free Software
@@ -71,6 +71,10 @@ Shortcut for likwid_markerResetRegion() if compiled with -DLIKWID_PERFMON. Other
 \def LIKWID_MARKER_CLOSE
 Shortcut for likwid_markerClose() if compiled with -DLIKWID_PERFMON. Otherwise no operation is performed
 */
+/*!
+\def LIKWID_MARKER_WRITE_FILE(markerfile)
+Shortcut for likwid_markerWriteFile() if compiled with -DLIKWID_PERFMON. Otherwise no operation is performed
+*/
 /** @}*/
 
 #ifdef LIKWID_PERFMON
@@ -82,6 +86,7 @@ Shortcut for likwid_markerClose() if compiled with -DLIKWID_PERFMON. Otherwise n
 #define LIKWID_MARKER_START(regionTag) likwid_markerStartRegion(regionTag)
 #define LIKWID_MARKER_STOP(regionTag) likwid_markerStopRegion(regionTag)
 #define LIKWID_MARKER_CLOSE likwid_markerClose()
+#define LIKWID_MARKER_WRITE_FILE(markerfile) likwid_markerWriteFile(markerfile)
 #define LIKWID_MARKER_RESET(regionTag) likwid_markerResetRegion(regionTag)
 #define LIKWID_MARKER_GET(regionTag, nevents, events, time, count) likwid_markerGetRegion(regionTag, nevents, events, time, count)
 #else  /* LIKWID_PERFMON */
@@ -92,6 +97,7 @@ Shortcut for likwid_markerClose() if compiled with -DLIKWID_PERFMON. Otherwise n
 #define LIKWID_MARKER_START(regionTag)
 #define LIKWID_MARKER_STOP(regionTag)
 #define LIKWID_MARKER_CLOSE
+#define LIKWID_MARKER_WRITE_FILE(markerfile)
 #define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
 #define LIKWID_MARKER_RESET(regionTag)
 #endif /* LIKWID_PERFMON */
@@ -101,40 +107,44 @@ Shortcut for likwid_markerClose() if compiled with -DLIKWID_PERFMON. Otherwise n
 *  @{
 */
 /*!
-\def LIKWID_NVMARKER_INIT
-Shortcut for likwid_gpuMarkerInit() if compiled with -DLIKWID_PERFMON. Otherwise no operation is performed
+\def NVMON_MARKER_INIT
+Shortcut for nvmon_markerInit() if compiled with -DLIKWID_PERFMON. Otherwise no operation is performed
 */
 /*!
-\def LIKWID_NVMARKER_THREADINIT
-Shortcut for likwid_gpuMarkerThreadInit() if compiled with -DLIKWID_PERFMON. Otherwise no operation is performed
+\def NVMON_MARKER_THREADINIT
+No operation is performed, this macro exists only to be similar as CPU MarkerAPI
 */
 /*!
-\def LIKWID_NVMARKER_REGISTER(regionTag)
-Shortcut for likwid_gpuMarkerRegisterRegion() with \a regionTag if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
+\def NVMON_MARKER_REGISTER(regionTag)
+Shortcut for nvmon_markerRegisterRegion() with \a regionTag if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
 */
 /*!
-\def LIKWID_NVMARKER_START(regionTag)
-Shortcut for likwid_gpuMarkerStartRegion() with \a regionTag if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
+\def NVMON_MARKER_START(regionTag)
+Shortcut for nvmon_markerStartRegion() with \a regionTag if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
 */
 /*!
-\def LIKWID_NVMARKER_STOP(regionTag)
-Shortcut for likwid_gpuMarkerStopRegion() with \a regionTag if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
+\def NVMON_MARKER_STOP(regionTag)
+Shortcut for nvmon_markerStopRegion() with \a regionTag if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
 */
 /*!
-\def LIKWID_NVMARKER_GET(regionTag, ngpus, nevents, events, time, count)
-Shortcut for likwid_gpuMarkerGetRegion() for \a regionTag if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
+\def NVMON_MARKER_GET(regionTag, ngpus, nevents, events, time, count)
+Shortcut for nvmon_markerGetRegion() for \a regionTag if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
 */
 /*!
-\def LIKWID_NVMARKER_SWITCH
-Shortcut for likwid_gpuMarkerNextGroup() if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
+\def NVMON_MARKER_SWITCH
+Shortcut for nvmon_markerNextGroup() if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
 */
 /*!
-\def LIKWID_NVMARKER_RESET(regionTag)
-Shortcut for likwid_gpuMarkerResetRegion() if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
+\def NVMON_MARKER_RESET(regionTag)
+Shortcut for nvmon_markerResetRegion() if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
 */
 /*!
-\def LIKWID_NVMARKER_CLOSE
-Shortcut for likwid_gpuMarkerClose() if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
+\def NVMON_MARKER_CLOSE
+Shortcut for nvmon_markerClose() if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
+*/
+/*!
+\def NVMON_MARKER_WRITE_FILE
+Shortcut for nvmon_markerWriteFile() with \a filename if compiled with -DLIKWID_NVMON. Otherwise no operation is performed
 */
 /** @}*/
 
@@ -143,26 +153,29 @@ Shortcut for likwid_gpuMarkerClose() if compiled with -DLIKWID_NVMON. Otherwise 
 #define LIKWID_WITH_NVMON
 #endif
 #include <likwid.h>
-#define LIKWID_NVMARKER_INIT likwid_gpuMarkerInit()
-#define LIKWID_NVMARKER_THREADINIT likwid_gpuMarkerThreadInit()
-#define LIKWID_NVMARKER_SWITCH likwid_gpuMarkerNextGroup()
-#define LIKWID_NVMARKER_REGISTER(regionTag) likwid_gpuMarkerRegisterRegion(regionTag)
-#define LIKWID_NVMARKER_START(regionTag) likwid_gpuMarkerStartRegion(regionTag)
-#define LIKWID_NVMARKER_STOP(regionTag) likwid_gpuMarkerStopRegion(regionTag)
-#define LIKWID_NVMARKER_CLOSE likwid_gpuMarkerClose()
-#define LIKWID_NVMARKER_RESET(regionTag) likwid_gpuMarkerResetRegion(regionTag)
-#define LIKWID_NVMARKER_GET(regionTag, ngpus, nevents, events, time, count) \
-    likwid_gpuMarkerGetRegion(regionTag, ngpus, nevents, events, time, count)
+#define NVMON_MARKER_INIT nvmon_markerInit()
+#define NVMON_MARKER_THREADINIT
+#define NVMON_MARKER_SWITCH nvmon_markerNextGroup()
+#define NVMON_MARKER_REGISTER(regionTag) nvmon_markerRegisterRegion(regionTag)
+#define NVMON_MARKER_START(regionTag) nvmon_markerStartRegion(regionTag)
+#define NVMON_MARKER_STOP(regionTag) nvmon_markerStopRegion(regionTag)
+#define NVMON_MARKER_CLOSE nvmon_markerClose()
+#define NVMON_MARKER_RESET(regionTag) nvmon_markerResetRegion(regionTag)
+#define NVMON_MARKER_GET(regionTag, ngpus, nevents, events, time, count) \
+    nvmon_markerGetRegion(regionTag, ngpus, nevents, events, time, count)
+#define NVMON_MARKER_WRITE_FILE(markerfile) \
+    nvmon_markerWriteFile(markerfile)
 #else /* LIKWID_NVMON */
-#define LIKWID_NVMARKER_INIT
-#define LIKWID_NVMARKER_THREADINIT
-#define LIKWID_NVMARKER_SWITCH
-#define LIKWID_NVMARKER_REGISTER(regionTag)
-#define LIKWID_NVMARKER_START(regionTag)
-#define LIKWID_NVMARKER_STOP(regionTag)
-#define LIKWID_NVMARKER_CLOSE
-#define LIKWID_NVMARKER_GET(regionTag, nevents, events, time, count)
-#define LIKWID_NVMARKER_RESET(regionTag)
+#define NVMON_MARKER_INIT
+#define NVMON_MARKER_THREADINIT
+#define NVMON_MARKER_SWITCH
+#define NVMON_MARKER_REGISTER(regionTag)
+#define NVMON_MARKER_START(regionTag)
+#define NVMON_MARKER_STOP(regionTag)
+#define NVMON_MARKER_CLOSE
+#define NVMON_MARKER_GET(regionTag, nevents, events, time, count)
+#define NVMON_MARKER_RESET(regionTag)
+#define NVMON_MARKER_WRITE_FILE(markerfile)
 #endif /* LIKWID_NVMON */
 
 
@@ -205,6 +218,10 @@ Shortcut for rocmon_markerResetRegion() if compiled with -DLIKWID_ROCMON. Otherw
 \def ROCMON_MARKER_CLOSE
 Shortcut for rocmon_markerClose() if compiled with -DLIKWID_ROCMON. Otherwise no operation is performed
 */
+/*!
+\def ROCMON_MARKER_WRITE_FILE
+Shortcut for rocmon_markerWriteFile() with \a filename if compiled with -DLIKWID_ROCMON. Otherwise no operation is performed
+*/
 /** @}*/
 
 #ifdef LIKWID_ROCMON
@@ -221,6 +238,7 @@ Shortcut for rocmon_markerClose() if compiled with -DLIKWID_ROCMON. Otherwise no
 #define ROCMON_MARKER_CLOSE rocmon_markerClose()
 #define ROCMON_MARKER_RESET(regionTag) rocmon_markerResetRegion(regionTag)
 #define ROCMON_MARKER_GET(regionTag, ngpus, nevents, events, time, count) rocmon_markerGetRegion(regionTag, ngpus, nevents, events, time, count)
+#define ROCMON_MARKER_WRITE_FILE(filename) rocmon_markerWriteFile(filename)
 #else /* LIKWID_ROCMON */
 #define ROCMON_MARKER_INIT
 #define ROCMON_MARKER_THREADINIT
@@ -231,6 +249,7 @@ Shortcut for rocmon_markerClose() if compiled with -DLIKWID_ROCMON. Otherwise no
 #define ROCMON_MARKER_CLOSE
 #define ROCMON_MARKER_GET(regionTag, nevents, events, time, count)
 #define ROCMON_MARKER_RESET(regionTag)
+#define ROCMON_MARKER_WRITE_FILE(filename)
 #endif /* LIKWID_ROCMON */
 
 
