@@ -2,7 +2,7 @@ module github.com/ClusterCockpit/cc-node-controller
 
 go 1.21.1
 
-toolchain go1.22.1
+toolchain go1.21.1
 
 require (
 	github.com/ClusterCockpit/cc-energy-manager v0.0.0-20240709142550-dd446f7ab900
