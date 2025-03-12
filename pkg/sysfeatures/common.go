@@ -33,7 +33,7 @@ func OpenLikwidLibrary() error {
 	//fmt.Printf("Library %s opened\n", LIKWID_LIB_NAME)
 	err = lib.Lookup("likwid_getSysFeaturesSupport")
 	if err != nil {
-		return fmt.Errorf("LIKWID library %s version 5.3+ required: %v", lib.Name, err)
+		return fmt.Errorf("LIKWID library %s version 5.4+ required: %v", lib.Name, err)
 	}
 	//fmt.Println("Found symbol likwid_getSysFeaturesSupport")
 	// if C.likwid_getSysFeaturesSupport == nil {
