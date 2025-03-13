@@ -54,7 +54,14 @@ func main() {
 	setregex := regexp.MustCompile(`^([a-z0-9\._]+)@([a-z]+)-([0-9]+)=(.+)$`)
 	cliopts := ReadCli()
 
-	c, err := cccontrol.NewCCControlClient(cliopts["server"].(string), cliopts["port"].(int), cliopts["input"].(string), cliopts["output"].(string))
+	natsCfg := cccontrol.NatsConfig{
+		Server: cliopts["server"].(string),
+		Port: uint16(cliopts["port"].(int)),
+		InputSubject: cliopts["input"].(string),
+		OutputSubject: cliopts["output"].(string),
+	}
+
+	c, err := cccontrol.NewCCControlClient(natsCfg)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
