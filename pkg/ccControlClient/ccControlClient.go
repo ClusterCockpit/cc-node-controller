@@ -49,14 +49,14 @@ type CCControlClient interface {
 }
 
 type NatsConfig struct {
-	Server string
-	Port uint16
-	InputSubject string
-	OutputSubject string
-	User string
-	Password string
-	CredsFile string
-	NKeySeedFile string
+	Server        string `json:"server"`
+	Port          uint16 `json:"port"`
+	InputSubject  string `json:"inputSubject"`
+	OutputSubject string `json:"outputSubject"`
+	User          string `json:"user"`
+	Password      string `json:"password"`
+	CredsFile     string `json:"credsFile"`
+	NKeySeedFile  string `json:"nkeySeedFile"`
 }
 
 func NewCCControlClient(natsConfig NatsConfig) (CCControlClient, error) {
