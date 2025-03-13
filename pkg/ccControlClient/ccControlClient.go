@@ -119,7 +119,7 @@ func (c *ccControlClient) connect() error {
 		options = append(options, r)
 	}
 
-	conn, err := nats.Connect(addr)
+	conn, err := nats.Connect(addr, options...)
 	if err != nil {
 		err := fmt.Errorf("failed to establish connection to %s: %v", addr, err.Error())
 		cclog.ComponentError("CCControlClient", err.Error())
