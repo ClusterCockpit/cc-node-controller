@@ -7,8 +7,8 @@ import (
 
 	topo "github.com/ClusterCockpit/cc-node-controller/pkg/ccTopology"
 
-	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
-	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
+	lp "github.com/ClusterCockpit/cc-lib/ccMessage"
+	cclog "github.com/ClusterCockpit/cc-lib/ccLogger"
 )
 
 type CCControlTopology struct {

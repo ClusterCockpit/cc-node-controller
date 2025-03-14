@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
+	cclog "github.com/ClusterCockpit/cc-lib/ccLogger"
 )
 
 func TestGetControls(t *testing.T) {

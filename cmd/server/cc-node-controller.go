@@ -13,8 +13,8 @@ import (
 
 	"github.com/ClusterCockpit/cc-node-controller/pkg/sysfeatures"
 
-	lp "github.com/ClusterCockpit/cc-energy-manager/pkg/cc-message"
-	cclog "github.com/ClusterCockpit/cc-metric-collector/pkg/ccLogger"
+	lp "github.com/ClusterCockpit/cc-lib/ccMessage"
+	cclog "github.com/ClusterCockpit/cc-lib/ccLogger"
 	// MIT license
 )
 
@@ -165,9 +165,11 @@ func real_main() int {
 		cli_opts["configfile"] = "./config.json"
 	}
 	if cli_opts["debug"] == "true" {
-		cclog.SetDebug()
+		// TODO this no longer exists, cleanup
+		//cclog.SetDebug()
 	}
-	cclog.SetOutput(cli_opts["logfile"])
+	// TODO this doesn't exist anymore either
+	//cclog.SetOutput(cli_opts["logfile"])
 
 	config, err := LoadConfiguration(cli_opts["configfile"])
 	if err != nil {
