@@ -1,17 +1,172 @@
 package sysfeatures
 
 /*
-#cgo CFLAGS: -I./likwid -DLIKWID_WITH_SYSFEATURES
-#cgo LDFLAGS: -Wl,--unresolved-symbols=ignore-in-object-files
+#cgo LDFLAGS: -ldl
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdlib.h>
-#ifndef LIKWID_WITH_SYSFEATURES
-#define LIKWID_WITH_SYSFEATURES
-#endif
-#include <likwid.h>
+#include <string.h>
+#include <stdio.h>
+#include <dlfcn.h>
 
-// Helper functions to access bitfields in SysFeature struct
-int getReadOnly(LikwidSysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].readonly : 0); }
-int getWriteOnly(LikwidSysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].writeonly : 0); }
+typedef int LikwidDeviceType;
+
+typedef struct {
+    LikwidDeviceType type;
+    union {
+        struct {
+            int id;
+        } simple;
+        struct {
+            uint16_t pci_domain;
+            uint8_t pci_bus;
+            uint8_t pci_dev;
+            uint8_t pci_func;
+        } pci;
+    } id;
+    int internal_id;
+} _LikwidDevice;
+
+typedef _LikwidDevice* LikwidDevice_t;
+
+typedef struct {
+    char* name;
+    char* category;
+    char* description;
+    LikwidDeviceType type;
+    unsigned int readonly:1;
+    unsigned int writeonly:1;
+} LikwidSysFeature;
+
+typedef struct {
+    int num_features;
+    LikwidSysFeature* features;
+} LikwidSysFeatureList;
+
+static void *cgo_lw_lib;
+
+static int (*likwid_sysft_init_ptr)(void);
+static int likwid_sysft_init(void) { return likwid_sysft_init_ptr(); }
+
+static int (*topology_init_ptr)(void);
+static int topology_init(void) { return topology_init_ptr(); }
+
+static int (*affinity_init_ptr)(void);
+static int affinity_init(void) { return topology_init_ptr(); }
+
+static void (*likwid_sysft_finalize_ptr)(void);
+static void likwid_sysft_finalize(void) { likwid_sysft_finalize_ptr(); }
+
+static void (*topology_finalize_ptr)(void);
+static void topology_finalize(void) { topology_finalize_ptr(); }
+
+static void (*affinity_finalize_ptr)(void);
+static void affinity_finalize(void) { affinity_finalize_ptr(); }
+
+static int (*likwid_sysft_list_ptr)(LikwidSysFeatureList *);
+static int likwid_sysft_list(LikwidSysFeatureList *list) { return likwid_sysft_list_ptr(list); }
+
+static void (*likwid_sysft_list_return_ptr)(LikwidSysFeatureList *);
+static void likwid_sysft_list_return(LikwidSysFeatureList *list) { likwid_sysft_list_return_ptr(list); }
+
+static int (*likwid_device_create_ptr)(LikwidDeviceType type, int id, LikwidDevice_t *dev);
+static int likwid_device_create(LikwidDeviceType type, int id, LikwidDevice_t *dev) {
+	return likwid_device_create_ptr(type, id, dev);
+}
+
+static int (*likwid_device_create_from_string_ptr)(LikwidDeviceType type, const char *id, LikwidDevice_t *dev);
+static int likwid_device_create_from_string(LikwidDeviceType type, const char *id, LikwidDevice_t *dev) {
+	return likwid_device_create_from_string_ptr(type, id, dev);
+}
+
+static void (*likwid_device_destroy_ptr)(LikwidDevice_t dev);
+static void likwid_device_destroy(LikwidDevice_t dev) { likwid_device_destroy_ptr(dev); }
+
+static const char *(*likwid_device_type_name_ptr)(LikwidDeviceType);
+static const char *likwid_device_type_name(LikwidDeviceType type) {
+	return likwid_device_type_name_ptr(type);
+}
+
+static int (*likwid_sysft_getByName_ptr)(const char *, const LikwidDevice_t, char **);
+static int likwid_sysft_getByName(const char *name, const LikwidDevice_t dev, char **value) {
+	return likwid_sysft_getByName_ptr(name, dev, value);
+}
+
+static int (*likwid_sysft_modifyByName_ptr)(const char *, const LikwidDevice_t, const char *);
+static int likwid_sysft_modifyByName(const char *name, const LikwidDevice_t dev, const char *value) {
+	return likwid_sysft_modifyByName_ptr(name, dev, value);
+}
+
+#define INIT_LIKWID_FUNC(func_name) 							\
+	do {														\
+		func_name##_ptr = dlsym(cgo_lw_lib, #func_name);		\
+		if (!func_name##_ptr) {									\
+			fprintf(stderr, "[Error] dlsym: %s\n", dlerror());	\
+			dlclose(cgo_lw_lib);								\
+			cgo_lw_lib = NULL;									\
+			return false;										\
+		}														\
+	} while (0)
+
+static bool cgo_lw_init(void) {
+	if (cgo_lw_lib)
+		return true;
+
+	cgo_lw_lib = dlopen("liblikwid.so", RTLD_LAZY);
+	if (!cgo_lw_lib) {
+		fprintf(stderr, "[ERROR] dlopen: %s\n", dlerror());
+		return false;
+	}
+
+	int (*likwid_getMajorVersion_ptr)(void);
+	INIT_LIKWID_FUNC(likwid_getMajorVersion);
+
+	int (*likwid_getMinorVersion_ptr)(void);
+	INIT_LIKWID_FUNC(likwid_getMinorVersion);
+
+	const int major = likwid_getMajorVersion_ptr();
+	const int minor = likwid_getMinorVersion_ptr();
+
+	// If you run into the error below: After checking that the API is still correct,
+	// you can bump the version number to get rid of this warning.
+	const int requiredMajor = 5;
+	const int requiredMinor = 4;
+	if (major != requiredMajor || minor != requiredMinor) {
+		fprintf(stderr, "[WARN] Found LIKWID %d.%d.X, but only %d.%d.X is supported. "
+			"Malfunction may occur.\n",
+			major, minor,
+			requiredMajor, requiredMinor);
+	}
+
+	int (*likwid_getSysFeaturesSupport_ptr)(void);
+	INIT_LIKWID_FUNC(likwid_getSysFeaturesSupport);
+
+	if (!likwid_getSysFeaturesSupport_ptr()) {
+		fprintf(stderr, "[ERROR] Found LIKWID, but sysfeatures support is disabled.");
+		return false;
+	}
+
+	// why are we initalizing it here, if we initialize it anyway later?
+	INIT_LIKWID_FUNC(likwid_sysft_init);
+	INIT_LIKWID_FUNC(topology_init);
+	INIT_LIKWID_FUNC(affinity_init);
+	INIT_LIKWID_FUNC(likwid_sysft_finalize);
+	INIT_LIKWID_FUNC(topology_finalize);
+	INIT_LIKWID_FUNC(affinity_finalize);
+	INIT_LIKWID_FUNC(likwid_sysft_list);
+	INIT_LIKWID_FUNC(likwid_sysft_list_return);
+	INIT_LIKWID_FUNC(likwid_device_create);
+	INIT_LIKWID_FUNC(likwid_device_create_from_string);
+	INIT_LIKWID_FUNC(likwid_device_destroy);
+	INIT_LIKWID_FUNC(likwid_device_type_name);
+	INIT_LIKWID_FUNC(likwid_sysft_getByName);
+
+	return true;
+}
+
+// TODO remove those two helper functions in the new LIKWID release > 5.4.X, when there are no more bitfields
+static int getReadOnly(LikwidSysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].readonly : 0); }
+static int getWriteOnly(LikwidSysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].writeonly : 0); }
 */
 import "C"
 import (
@@ -20,148 +175,117 @@ import (
 	"unsafe"
 )
 
+type LikwidDeviceType int
+
 type SysFeature struct {
 	Name        string
 	Category    string
 	Description string
-	Devtype     int
-	DevtypeName string
+	DevType     int
+	DevTypeName string
 	ReadOnly    bool
 	WriteOnly   bool
+}
+
+type LikwidDevice struct {
+	Id      int64
+	DevType int
+	DevTypeName string
+	raw    C.LikwidDevice_t
 }
 
 func (s *SysFeature) String() string {
 	slist := make([]string, 0)
 	slist = append(slist, fmt.Sprintf("Category %s Name %s", s.Category, s.Name))
 	slist = append(slist, fmt.Sprintf("Description: %s", s.Description))
-	slist = append(slist, fmt.Sprintf("For type: %s", s.DevtypeName))
+	slist = append(slist, fmt.Sprintf("For type: %s", s.DevTypeName))
 	return strings.Join(slist, "\n")
 }
 
-type SysFeatures struct {
-	list         []SysFeature
-	inititalized bool
-}
-
-var _likwid_sysfeatures SysFeatures = SysFeatures{
-	list:         make([]SysFeature, 0),
-	inititalized: false,
-}
-
 func SysFeaturesInit() error {
-
-	err := OpenLikwidLibrary()
-	if err != nil {
-		return err
+	ok := C.cgo_lw_init()
+	if !ok {
+		return fmt.Errorf("Error while initializing LIKWID sysfeatures")
 	}
-	//fmt.Println("Checking sysFeatures support")
-	cerr := C.likwid_getSysFeaturesSupport()
-	if cerr == 0 {
-		return fmt.Errorf("likwid library built without SysFeatures support")
+	if err := C.topology_init(); err != 0 {
+		return fmt.Errorf("topology_init: %s", C.GoString(C.strerror(-err)))
 	}
-	//fmt.Println("Getting topology")
-	cerr = C.topology_init()
-	if cerr != 0 {
-		return fmt.Errorf("failed to initialize topology component")
+	if err := C.affinity_init(); err != 0 {
+		return fmt.Errorf("affinity_init: %s", C.GoString(C.strerror(-err)))
 	}
-	//fmt.Println("Getting affinity")
-	C.affinity_init()
-	//fmt.Println("Running likwid_sysft_init")
-	cerr = C.likwid_sysft_init()
-	if cerr != 0 {
-		return fmt.Errorf("failed to initialize SysFeatures component")
+	if err := C.likwid_sysft_init(); err != 0 {
+		return fmt.Errorf("likwid_sysft_init: %s", C.GoString(C.strerror(-err)))
 	}
-	_likwid_sysfeatures.inititalized = true
 	return nil
 }
 
 func SysFeaturesClose() {
-	if _likwid_sysfeatures.inititalized {
-		C.likwid_sysft_finalize()
-		C.affinity_finalize()
-		C.topology_finalize()
-		_likwid_sysfeatures.inititalized = false
-	}
-}
-
-var LikwidDeviceTypeNames map[uint32]string = map[uint32]string{
-	0:                              "invalid",
-	uint32(C.DEVICE_TYPE_HWTHREAD): "hwthread",
-	uint32(C.DEVICE_TYPE_CORE):     "core",
-	uint32(C.DEVICE_TYPE_LLC):      "LLC",
-	uint32(C.DEVICE_TYPE_NUMA):     "numa",
-	uint32(C.DEVICE_TYPE_DIE):      "die",
-	uint32(C.DEVICE_TYPE_SOCKET):   "socket",
-	uint32(C.DEVICE_TYPE_NODE):     "node",
+	C.likwid_sysft_finalize()
+	C.affinity_finalize()
+	C.topology_finalize()
 }
 
 func SysFeaturesList() ([]SysFeature, error) {
-	if !_likwid_sysfeatures.inititalized {
-		return nil, fmt.Errorf("SysFeatures not initialized")
+	sysftList := C.LikwidSysFeatureList{
+		num_features: 0,
+		features: nil,
 	}
-	if len(_likwid_sysfeatures.list) == 0 {
-		var l C.LikwidSysFeatureList
-		l.num_features = 0
-		l.features = nil
 
-		cerr := C.likwid_sysft_list(&l)
-		if cerr != 0 {
-			return nil, fmt.Errorf("failed to get list of SysFeatures")
-		}
-		slice := unsafe.Slice(l.features, l.num_features)
-		for i, csf := range slice {
-			rdonly := int(C.getReadOnly(l, C.int(i)))
-			b_rdonly := false
-			wronly := int(C.getWriteOnly(l, C.int(i)))
-			b_wronly := false
-			if rdonly == 1 {
-				b_rdonly = true
-			}
-			if wronly == 1 {
-				b_wronly = true
-			}
-			sf := SysFeature{
-				Name:        C.GoString(csf.name),
-				Category:    C.GoString(csf.category),
-				Devtype:     int(csf._type),
-				DevtypeName: LikwidDeviceTypeNames[uint32(csf._type)],
-				Description: C.GoString(csf.description),
-				ReadOnly:    b_rdonly,
-				WriteOnly:   b_wronly,
-			}
-			_likwid_sysfeatures.list = append(_likwid_sysfeatures.list, sf)
-		}
-		C.likwid_sysft_list_return(&l)
+	err := C.likwid_sysft_list(&sysftList)
+	if err != 0 {
+		return nil, fmt.Errorf("likwid_sysft_list")
 	}
-	outlist := make([]SysFeature, 0)
-	outlist = append(outlist, _likwid_sysfeatures.list...)
-	return outlist, nil
+
+	defer C.likwid_sysft_list_return(&sysftList)
+
+	retval := make([]SysFeature, 0)
+
+	features := unsafe.Slice(sysftList.features, sysftList.num_features)
+	for ftIndex, feature := range features {
+		readOnly := false
+		if int(C.getReadOnly(sysftList, C.int(ftIndex))) == 1 {
+			readOnly = true
+		}
+
+		writeOnly := false
+		if int(C.getWriteOnly(sysftList, C.int(ftIndex))) == 1 {
+			writeOnly = true
+		}
+
+		sf := SysFeature{
+			Name:        C.GoString(feature.name),
+			Category:    C.GoString(feature.category),
+			DevType:     int(feature._type),
+			DevTypeName: C.GoString(C.likwid_device_type_name(feature._type)),
+			Description: C.GoString(feature.description),
+			ReadOnly:    readOnly,
+			WriteOnly:   writeOnly,
+		}
+
+		retval = append(retval, sf)
+	}
+
+	return retval, nil
 }
 
-func SysFeaturesGetDevice(name string, dev LikwidDevice) (string, error) {
+func SysFeaturesGetByNameAndDevice(name string, dev LikwidDevice) (string, error) {
 	var val *C.char
-	if !_likwid_sysfeatures.inititalized {
-		return "", fmt.Errorf("SysFeatures not initialized")
-	}
-	cs := C.CString(name)
-	cerr := C.likwid_sysft_getByName(cs, dev._raw, &val)
-	C.free(unsafe.Pointer(cs))
+	cName := C.CString(name)
+	cerr := C.likwid_sysft_getByName(cName, dev.raw, &val)
+	C.free(unsafe.Pointer(cName))
 	if cerr != 0 {
-		return "", fmt.Errorf("failed to get feature '%s' for device (%s, %d)", name, dev.Devname, dev.Id)
+		return "", fmt.Errorf("likwid_sysft_getByName() failed (feature=%s, devType=%s, devId=%s): %s", name, dev.DevTypeName, dev.Id, C.GoString(C.strerror(-cerr)))
 	}
 	defer C.free(unsafe.Pointer(val))
 	return C.GoString(val), nil
 }
 
-func SysFeaturesGet(name string, devicetype int, deviceidx int) (string, error) {
-	if !_likwid_sysfeatures.inititalized {
-		return "", fmt.Errorf("SysFeatures not initialized")
-	}
-	dev, err := LikwidDeviceCreate(devicetype, deviceidx)
+func SysFeaturesGetByNameAndDevId(name string, deviceType int, deviceId string) (string, error) {
+	dev, err := LikwidDeviceCreate(deviceType, deviceId)
 	if err != nil {
 		return "", err
 	}
-	val, err := SysFeaturesGetDevice(name, dev)
+	val, err := SysFeaturesGetByNameAndDevice(name, dev)
 	LikwidDeviceDestroy(dev)
 	if err != nil {
 		return "", err
@@ -169,33 +293,74 @@ func SysFeaturesGet(name string, devicetype int, deviceidx int) (string, error) 
 	return val, nil
 }
 
-func SysFeaturesSetDevice(name string, dev LikwidDevice, value string) error {
-	if !_likwid_sysfeatures.inititalized {
-		return fmt.Errorf("SysFeatures not initialized")
-	}
-	cs := C.CString(name)
-	cv := C.CString(value)
-	cerr := C.likwid_sysft_modifyByName(cs, dev._raw, cv)
-	C.free(unsafe.Pointer(cv))
-	C.free(unsafe.Pointer(cs))
+func SysFeaturesSetByNameAndDevice(name string, dev LikwidDevice, value string) error {
+	cName := C.CString(name)
+	cValue := C.CString(value)
+	cerr := C.likwid_sysft_modifyByName(cName, dev.raw, cValue)
+	C.free(unsafe.Pointer(cValue))
+	C.free(unsafe.Pointer(cName))
 	if cerr != 0 {
-		return fmt.Errorf("failed to set feature '%s' for device (%s, %d): %d", name, dev.Devname, dev.Id, int(cerr))
+		return fmt.Errorf("likwid_sysft_modifyByName() failed (feature=%s, devType=%s, devId=%s, value=%s): %s", name, dev.DevTypeName, dev.Id, C.GoString(C.strerror(-cerr)))
 	}
 	return nil
 }
 
-func SysFeaturesSet(name string, devicetype int, deviceidx int, value string) error {
-	if !_likwid_sysfeatures.inititalized {
-		return fmt.Errorf("SysFeatures not initialized")
-	}
-	dev, err := LikwidDeviceCreate(devicetype, deviceidx)
+func SysFeaturesSetByNameAndDevId(name string, deviceType int, deviceId string, value string) error {
+	dev, err := LikwidDeviceCreate(deviceType, deviceId)
 	if err != nil {
 		return err
 	}
-	err = SysFeaturesSetDevice(name, dev, value)
+	err = SysFeaturesSetByNameAndDevice(name, dev, value)
 	LikwidDeviceDestroy(dev)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func LikwidDeviceCreateByTypeName(deviceType string, deviceId string) (LikwidDevice, error) {
+	for i := 1; true; i++ {
+		s := C.GoString(C.likwid_device_type_name(C.LikwidDeviceType(i)))
+		if s == deviceType {
+			return LikwidDeviceCreate(i, deviceId)
+		}
+
+		if s == "unsupported" {
+			break
+		}
+	}
+
+	return LikwidDevice{}, fmt.Errorf("LikwidDeviceCreateByTypeName: Invalid device type %s", deviceType)
+}
+
+func LikwidDeviceDestroy(dev LikwidDevice) {
+	C.likwid_device_destroy(dev.raw)
+}
+
+func LikwidDeviceCreate(deviceType int, deviceId string) (LikwidDevice, error) {
+	var cLikwidDevice C.LikwidDevice_t
+
+	err := SysFeaturesInit()
+	if err != nil {
+		return LikwidDevice{}, err
+	}
+
+	cDeviceId := C.CString(deviceId)
+	cerr := C.likwid_device_create_from_string(C.LikwidDeviceType(deviceType), cDeviceId, &cLikwidDevice)
+	C.free(unsafe.Pointer(cDeviceId))
+	if cerr != 0 {
+		return LikwidDevice{}, fmt.Errorf("likwid_device_create() failed: (type=%d, idx=%s): %s", deviceType, deviceId, C.GoString(C.strerror(-cerr)))
+	}
+
+	id := int64(0)
+	for i, d := range cLikwidDevice.id {
+		id |= int64(d) << (i * 8)
+	}
+	dev := LikwidDevice{
+		DevType: deviceType,
+		DevTypeName: C.GoString(C.likwid_device_type_name(cLikwidDevice._type)),
+		Id:      id,
+		raw:     cLikwidDevice,
+	}
+	return dev, nil
 }

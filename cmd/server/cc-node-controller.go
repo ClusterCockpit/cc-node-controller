@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -43,22 +42,18 @@ func ProcessCommand(input lp.CCMessage) (lp.CCMessage, error) {
 		return nil, fmt.Errorf("%s and cannot send response", errorString)
 	}
 
-	var tid int64 = 0
-	var err error = nil
+	var deviceId string
 	cclog.ComponentDebug("Sysfeatures", "Processing", input.ToLineProtocol(nil))
 	knob := input.Name()
-	t, ok := input.GetTag("type")
+	deviceType, ok := input.GetTag("type")
 	if !ok {
 		return createOutput(fmt.Sprintf("No 'type' tag in %s", input.ToLineProtocol(nil)))
 	}
-	if t != "node" {
-		stid, ok := input.GetTag("type-id")
+	if deviceType != "node" {
+		var ok bool
+		deviceId, ok = input.GetTag("type-id")
 		if !ok {
 			return createOutput(fmt.Sprintf("No 'type-id' tag in %s", input.ToLineProtocol(nil)))
-		}
-		tid, err = strconv.ParseInt(stid, 10, 64)
-		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot parse 'type-id' tag in %s", input.ToLineProtocol(nil)))
 		}
 	}
 	method, ok := input.GetTag("method")
@@ -69,33 +64,33 @@ func ProcessCommand(input lp.CCMessage) (lp.CCMessage, error) {
 		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input.ToLineProtocol(nil)))
 	}
 	if method == "PUT" {
-		value, ok := input.GetField("value")
+		valueRaw, ok := input.GetField("value")
 		if !ok {
 			return createOutput(fmt.Sprintf("No 'value' field in %s", input.ToLineProtocol(nil)))
 		}
-		v := fmt.Sprintf("%d", value)
-		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
-		dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
+		value := fmt.Sprintf("%v", valueRaw)
+		cclog.ComponentDebug("Sysfeatures", "Creating device", deviceType, " ", deviceId)
+		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid))
+			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
 		}
-		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", t, " ", int(tid), "to", v)
-		err = sysfeatures.SysFeaturesSetDevice(knob, dev, v)
+		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", deviceType, " ", deviceId, "to", value)
+		err = sysfeatures.SysFeaturesSetByNameAndDevice(knob, dev, value)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Failed to set %s=%s for device %s%d", knob, v, t, tid))
+			return createOutput(fmt.Sprintf("Failed to set %s=%s for device %s/%s", knob, value, deviceType, deviceId))
 		}
 	} else if method == "GET" {
-		cclog.ComponentDebug("Sysfeatures", "Creating device", t, " ", int(tid))
-		dev, err := sysfeatures.LikwidDeviceCreateByName(t, int(tid))
+		cclog.ComponentDebug("Sysfeatures", "Creating device", deviceType, " ", deviceId)
+		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s%d", t, tid))
+			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
 		}
-		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", t, " ", int(tid))
-		value, err := sysfeatures.SysFeaturesGetDevice(knob, dev)
+		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", deviceType, " ", deviceId)
+		value, err := sysfeatures.SysFeaturesGetByNameAndDevice(knob, dev)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Failed to get %s for device %s%d", knob, t, tid))
+			return createOutput(fmt.Sprintf("Failed to get %s for device %s/%s", knob, deviceType, deviceId))
 		}
-		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", t, " ", int(tid), "returned", value)
+		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", deviceType, " ", deviceId, "returned", value)
 		resp, err := createOutput(value)
 		if err == nil {
 			resp.AddTag("level", "INFO")
