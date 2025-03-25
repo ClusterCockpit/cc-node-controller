@@ -233,7 +233,7 @@ func (c *ccControlClient) GetControls(hostname string) (CCControlList, error) {
 
 func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error) {
 	var topo CCControlTopology = CCControlTopology{}
-	var globerr error = nil
+	var err error
 	if c.conn == nil {
 		err := c.connect()
 		if err != nil {
@@ -273,28 +273,18 @@ func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error
 	if !ok {
 		return topo, fmt.Errorf("failed to get level from message: %s", m)
 	}
-	value, ok := m.GetField("value")
-	if !ok {
-		return topo, fmt.Errorf("failed to get value from message: %s", m)
+	if !m.IsLog() {
+		return topo, fmt.Errorf("received message is not of type log: %s", m)
 	}
+	value := m.GetLogValue()
 	fmt.Println(m.String())
 	if level == "INFO" {
-		switch x := value.(type) {
-		case string:
-			globerr = json.Unmarshal([]byte(x), &topo)
-		case []byte:
-			globerr = json.Unmarshal(x, &topo)
-		}
+		err = json.Unmarshal([]byte(value), &topo)
 	} else {
 		cclog.ComponentError("CCControlClient", "Host", hostname, ":", value)
-		switch x := value.(type) {
-		case string:
-			globerr = errors.New(x)
-		case []byte:
-			globerr = errors.New(string(x))
-		}
+		err = fmt.Errorf("Received error from cc-node-controller (host=%s): %s", hostname, value)
 	}
-	return topo, globerr
+	return topo, err
 }
 
 func (c *ccControlClient) GetControlValue(hostname, control string, device string, deviceID string) (string, error) {

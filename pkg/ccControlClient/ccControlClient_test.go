@@ -3,16 +3,22 @@ package cccontrolclient
 import (
 	"fmt"
 	"testing"
+)
 
-	cclog "github.com/ClusterCockpit/cc-lib/ccLogger"
+var (
+	natsConfig NatsConfig = NatsConfig{
+		Server: "127.0.0.1",
+		Port: 4222,
+		InputSubject: "cc-events",
+		OutputSubject: "cc-control",
+	}
 )
 
 func TestGetControls(t *testing.T) {
-	c, err := NewCCControlClient("127.0.0.1", 4222, "cc-events", "cc-control")
+	c, err := NewCCControlClient(natsConfig)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	cclog.SetDebug()
 	control, err := c.GetControls("nuc")
 	if err != nil {
 		t.Error(err.Error())
@@ -29,11 +35,10 @@ func TestGetControls(t *testing.T) {
 
 func TestGetTopology(t *testing.T) {
 	target := "nuc"
-	c, err := NewCCControlClient("127.0.0.1", 4222, "cc-events", "cc-control")
+	c, err := NewCCControlClient(natsConfig)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	cclog.SetDebug()
 	topo, err := c.GetTopology(target)
 	if err != nil {
 		t.Error(err.Error())
@@ -52,11 +57,10 @@ func TestGetControlValue(t *testing.T) {
 	device := "socket"
 	deviceID := "0"
 
-	c, err := NewCCControlClient("127.0.0.1", 4222, "cc-events", "cc-control")
+	c, err := NewCCControlClient(natsConfig)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	cclog.SetDebug()
 	value, err := c.GetControlValue(target, control, device, deviceID)
 	if err != nil {
 		t.Error(err.Error())
@@ -74,12 +78,11 @@ func TestSetControlValue(t *testing.T) {
 	deviceID := "0"
 	var outerr error = nil
 
-	c, err := NewCCControlClient("127.0.0.1", 4222, "cc-events", "cc-control")
+	c, err := NewCCControlClient(natsConfig)
 	if err != nil {
 		t.Error(err.Error())
 	}
 	defer c.Close()
-	cclog.SetDebug()
 	cur, err := c.GetControlValue(target, control, device, deviceID)
 	if err != nil {
 		t.Error(err.Error())
@@ -108,5 +111,4 @@ func TestSetControlValue(t *testing.T) {
 	if outerr != nil {
 		t.Error(err.Error())
 	}
-
 }
