@@ -5,10 +5,22 @@ import (
 	"testing"
 )
 
+var testTypes []string = []string{
+	"hwthread",
+	"core",
+	"LLC",
+	"die",
+	"socket",
+	"node",
+	"numa",
+	"invalid",
+}
+
 func TestInit(t *testing.T) {
 	err := SysFeaturesInit()
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
+		fmt.Printf("aaaaaaaaaaaaaaaaa\n")
 	}
 	SysFeaturesClose()
 }
@@ -16,7 +28,7 @@ func TestInit(t *testing.T) {
 func TestList(t *testing.T) {
 	err := SysFeaturesInit()
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer SysFeaturesClose()
 	list, err := SysFeaturesList()
@@ -34,7 +46,7 @@ func TestList(t *testing.T) {
 func TestGet(t *testing.T) {
 	err := SysFeaturesInit()
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer SysFeaturesClose()
 	list, err := SysFeaturesList()
@@ -46,11 +58,11 @@ func TestGet(t *testing.T) {
 			continue
 		}
 		control := fmt.Sprintf("%s.%s", l.Category, l.Name)
-		dev, err := LikwidDeviceCreate(l.Devtype, 0)
+		dev, err := LikwidDeviceCreate(l.DevType, "0")
 		if err != nil {
 			t.Error(err.Error())
 		}
-		s, err := SysFeaturesGetDevice(control, dev)
+		s, err := SysFeaturesGetByNameAndDevice(control, dev)
 		if err != nil {
 			t.Errorf("Control %s: %v", control, err.Error())
 		}
@@ -64,11 +76,12 @@ func TestSet(t *testing.T) {
 	has_control := false
 	max_control := "pkg_max_limit"
 	has_max_control := false
-	devtype := LikwidDeviceType(Invalid)
 	err := SysFeaturesInit()
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
+	devtype := LikwidDeviceTypeNameToId("invalid")
+	socketType := LikwidDeviceTypeNameToId("socket")
 	defer SysFeaturesClose()
 	list, err := SysFeaturesList()
 	if err != nil {
@@ -77,7 +90,7 @@ func TestSet(t *testing.T) {
 	for _, l := range list {
 		if l.Name == control {
 			has_control = true
-			devtype = LikwidDeviceType(l.Devtype)
+			devtype = LikwidDeviceType(l.DevType)
 		}
 		if l.Name == max_control {
 			has_max_control = true
@@ -86,13 +99,13 @@ func TestSet(t *testing.T) {
 			break
 		}
 	}
-	if has_control && has_max_control && devtype != Invalid {
-		cur, err := SysFeaturesGet(control, Socket, 0)
+	if has_control && has_max_control && devtype != LikwidDeviceTypeNameToId("invalid") {
+		cur, err := SysFeaturesGetByNameAndDevId(control, socketType, "0")
 		if err != nil {
 			t.Error(err.Error())
 		}
 		t.Logf("%s -> %s", control, cur)
-		max, err := SysFeaturesGet(max_control, Socket, 0)
+		max, err := SysFeaturesGetByNameAndDevId(max_control, socketType, "0")
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -100,11 +113,11 @@ func TestSet(t *testing.T) {
 		max = "2432000000"
 		t.Logf("%s (reset) -> %s", max_control, max)
 
-		err = SysFeaturesSet(control, Socket, 0, max)
+		err = SysFeaturesSetByNameAndDevId(control, socketType, "0", max)
 		if err != nil {
 			t.Error(err.Error())
 		}
-		tmp, err := SysFeaturesGet(control, Socket, 0)
+		tmp, err := SysFeaturesGetByNameAndDevId(control, socketType, "0")
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -113,9 +126,122 @@ func TestSet(t *testing.T) {
 			t.Errorf("expected %s but got %s", max, tmp)
 		}
 		t.Logf("%s (reset) -> %s", control, cur)
-		err = SysFeaturesSet(control, int(devtype), 0, cur)
+		err = SysFeaturesSetByNameAndDevId(control, devtype, "0", cur)
 		if err != nil {
 			t.Error(err.Error())
 		}
 	}
+}
+
+func TestDeviceCreate(t *testing.T) {
+	err := SysFeaturesInit()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	for _, deviceTypeName := range testTypes {
+		deviceTypeId := LikwidDeviceTypeNameToId(deviceTypeName)
+		d, err := LikwidDeviceCreate(deviceTypeId, "0")
+		if err != nil {
+			t.Errorf("%v", err.Error())
+		}
+		LikwidDeviceDestroy(d)
+	}
+
+	SysFeaturesClose()
+}
+
+func TestDeviceCreateName(t *testing.T) {
+	err := SysFeaturesInit()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	for _, deviceType := range testTypes {
+		d, err := LikwidDeviceCreateByTypeName(deviceType, "0")
+		if err != nil {
+			t.Errorf("%v", err.Error())
+		}
+		LikwidDeviceDestroy(d)
+	}
+
+	SysFeaturesClose()
+}
+
+func TestDeviceCreateShouldFail(t *testing.T) {
+	err := SysFeaturesInit()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	for _, deviceTypeName := range testTypes {
+		deviceTypeId := LikwidDeviceTypeNameToId(deviceTypeName)
+		d, err := LikwidDeviceCreate(deviceTypeId, "-1")
+		if err == nil {
+			t.Errorf("device successfully created despite ID -1")
+			LikwidDeviceDestroy(d)
+		}
+	}
+
+	SysFeaturesClose()
+}
+
+func TestDeviceCreateNameShouldFail(t *testing.T) {
+	err := SysFeaturesInit()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	for _, deviceType := range testTypes {
+		d, err := LikwidDeviceCreateByTypeName(deviceType, "-1")
+		if err == nil {
+			t.Errorf("device successfully created despite ID -1")
+			LikwidDeviceDestroy(d)
+		}
+	}
+
+	SysFeaturesClose()
+}
+
+func TestDeviceCreateNotImplemented(t *testing.T) {
+	err := SysFeaturesInit()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	typeList := []string{
+		"LLC",
+	}
+
+	for _, deviceTypeName := range typeList {
+		deviceTypeId := LikwidDeviceTypeNameToId(deviceTypeName)
+		d, err := LikwidDeviceCreate(deviceTypeId, "-1")
+		if err == nil {
+			t.Errorf("device successfully created despite not implemented type %v", deviceTypeName)
+			LikwidDeviceDestroy(d)
+		}
+	}
+
+	SysFeaturesClose()
+}
+
+func TestDeviceCreateNameNotImplemented(t *testing.T) {
+	err := SysFeaturesInit()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	typeList := []string{
+		"LLC",
+	}
+
+	for _, deviceType := range typeList {
+		d, err := LikwidDeviceCreateByTypeName(deviceType, "-1")
+		if err == nil {
+			t.Errorf("device successfully created despite not implemented type %v", deviceType)
+			LikwidDeviceDestroy(d)
+		}
+	}
+
+	SysFeaturesClose()
 }

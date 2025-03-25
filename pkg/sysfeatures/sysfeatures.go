@@ -173,6 +173,7 @@ import (
 	"fmt"
 	"strings"
 	"unsafe"
+	"sync"
 )
 
 type LikwidDeviceType int
@@ -181,7 +182,7 @@ type SysFeature struct {
 	Name        string
 	Category    string
 	Description string
-	DevType     int
+	DevType     LikwidDeviceType
 	DevTypeName string
 	ReadOnly    bool
 	WriteOnly   bool
@@ -189,10 +190,15 @@ type SysFeature struct {
 
 type LikwidDevice struct {
 	Id      int64
-	DevType int
+	DevType LikwidDeviceType
 	DevTypeName string
 	raw    C.LikwidDevice_t
 }
+
+var (
+	deviceNameToIdMutex sync.Mutex
+	deviceNameToId map[string]LikwidDeviceType
+)
 
 func (s *SysFeature) String() string {
 	slist := make([]string, 0)
@@ -255,7 +261,7 @@ func SysFeaturesList() ([]SysFeature, error) {
 		sf := SysFeature{
 			Name:        C.GoString(feature.name),
 			Category:    C.GoString(feature.category),
-			DevType:     int(feature._type),
+			DevType:     LikwidDeviceType(feature._type),
 			DevTypeName: C.GoString(C.likwid_device_type_name(feature._type)),
 			Description: C.GoString(feature.description),
 			ReadOnly:    readOnly,
@@ -274,13 +280,13 @@ func SysFeaturesGetByNameAndDevice(name string, dev LikwidDevice) (string, error
 	cerr := C.likwid_sysft_getByName(cName, dev.raw, &val)
 	C.free(unsafe.Pointer(cName))
 	if cerr != 0 {
-		return "", fmt.Errorf("likwid_sysft_getByName() failed (feature=%s, devType=%s, devId=%s): %s", name, dev.DevTypeName, dev.Id, C.GoString(C.strerror(-cerr)))
+		return "", fmt.Errorf("likwid_sysft_getByName() failed (feature=%s, devType=%s, devId=%d): %s", name, dev.DevTypeName, dev.Id, C.GoString(C.strerror(-cerr)))
 	}
 	defer C.free(unsafe.Pointer(val))
 	return C.GoString(val), nil
 }
 
-func SysFeaturesGetByNameAndDevId(name string, deviceType int, deviceId string) (string, error) {
+func SysFeaturesGetByNameAndDevId(name string, deviceType LikwidDeviceType, deviceId string) (string, error) {
 	dev, err := LikwidDeviceCreate(deviceType, deviceId)
 	if err != nil {
 		return "", err
@@ -300,12 +306,12 @@ func SysFeaturesSetByNameAndDevice(name string, dev LikwidDevice, value string) 
 	C.free(unsafe.Pointer(cValue))
 	C.free(unsafe.Pointer(cName))
 	if cerr != 0 {
-		return fmt.Errorf("likwid_sysft_modifyByName() failed (feature=%s, devType=%s, devId=%s, value=%s): %s", name, dev.DevTypeName, dev.Id, C.GoString(C.strerror(-cerr)))
+		return fmt.Errorf("likwid_sysft_modifyByName() failed (feature=%s, devType=%s, devId=%d, value=%s): %s", name, dev.DevTypeName, dev.Id, value, C.GoString(C.strerror(-cerr)))
 	}
 	return nil
 }
 
-func SysFeaturesSetByNameAndDevId(name string, deviceType int, deviceId string, value string) error {
+func SysFeaturesSetByNameAndDevId(name string, deviceType LikwidDeviceType, deviceId string, value string) error {
 	dev, err := LikwidDeviceCreate(deviceType, deviceId)
 	if err != nil {
 		return err
@@ -318,26 +324,50 @@ func SysFeaturesSetByNameAndDevId(name string, deviceType int, deviceId string, 
 	return nil
 }
 
-func LikwidDeviceCreateByTypeName(deviceType string, deviceId string) (LikwidDevice, error) {
+func LikwidDeviceTypeNameToId(deviceTypeName string) LikwidDeviceType {
+	deviceNameToIdMutex.Lock()
+	defer deviceNameToIdMutex.Unlock()
+
+	if retval, ok := deviceNameToId[deviceTypeName]; ok {
+		return retval
+	}
+
 	for i := 1; true; i++ {
-		s := C.GoString(C.likwid_device_type_name(C.LikwidDeviceType(i)))
-		if s == deviceType {
-			return LikwidDeviceCreate(i, deviceId)
+		deviceTypeId := LikwidDeviceType(i)
+		// Not sure why this function returns "unsupported".
+		// "invalid" would be more appropriate to fit with the rest of the LIKWID code.
+		ptr := C.likwid_device_type_name(C.LikwidDeviceType(deviceTypeId))
+		s := ""
+		if ptr != nil {
+			s = C.GoString(ptr)
+			if s == deviceTypeName {
+				deviceNameToId[deviceTypeName] = deviceTypeId
+				return deviceTypeId
+			}
 		}
 
-		if s == "unsupported" {
+		if ptr == nil || s == "unsupported" || s == "invalid" {
 			break
 		}
 	}
 
-	return LikwidDevice{}, fmt.Errorf("LikwidDeviceCreateByTypeName: Invalid device type %s", deviceType)
+	deviceNameToId[deviceTypeName] = LikwidDeviceType(0)
+	return LikwidDeviceType(0)
+}
+
+func LikwidDeviceCreateByTypeName(deviceTypeName string, deviceId string) (LikwidDevice, error) {
+	deviceTypeId := LikwidDeviceTypeNameToId(deviceTypeName)
+	if deviceTypeId == LikwidDeviceType(0) {
+		return LikwidDevice{}, fmt.Errorf("LikwidDeviceCreateByTypeName: Invalid device type %s", deviceTypeName)
+	}
+	return LikwidDeviceCreate(deviceTypeId, deviceId)
 }
 
 func LikwidDeviceDestroy(dev LikwidDevice) {
 	C.likwid_device_destroy(dev.raw)
 }
 
-func LikwidDeviceCreate(deviceType int, deviceId string) (LikwidDevice, error) {
+func LikwidDeviceCreate(deviceType LikwidDeviceType, deviceId string) (LikwidDevice, error) {
 	var cLikwidDevice C.LikwidDevice_t
 
 	err := SysFeaturesInit()
