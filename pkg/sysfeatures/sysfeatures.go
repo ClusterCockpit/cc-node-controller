@@ -160,6 +160,7 @@ static bool cgo_lw_init(void) {
 	INIT_LIKWID_FUNC(likwid_device_destroy);
 	INIT_LIKWID_FUNC(likwid_device_type_name);
 	INIT_LIKWID_FUNC(likwid_sysft_getByName);
+	INIT_LIKWID_FUNC(likwid_sysft_modifyByName);
 
 	return true;
 }
@@ -328,6 +329,10 @@ func LikwidDeviceTypeNameToId(deviceTypeName string) LikwidDeviceType {
 	deviceNameToIdMutex.Lock()
 	defer deviceNameToIdMutex.Unlock()
 
+	if deviceNameToId == nil {
+		deviceNameToId = make(map[string]LikwidDeviceType)
+	}
+
 	if retval, ok := deviceNameToId[deviceTypeName]; ok {
 		return retval
 	}
@@ -369,12 +374,6 @@ func LikwidDeviceDestroy(dev LikwidDevice) {
 
 func LikwidDeviceCreate(deviceType LikwidDeviceType, deviceId string) (LikwidDevice, error) {
 	var cLikwidDevice C.LikwidDevice_t
-
-	err := SysFeaturesInit()
-	if err != nil {
-		return LikwidDevice{}, err
-	}
-
 	cDeviceId := C.CString(deviceId)
 	cerr := C.likwid_device_create_from_string(C.LikwidDeviceType(deviceType), cDeviceId, &cLikwidDevice)
 	C.free(unsafe.Pointer(cDeviceId))

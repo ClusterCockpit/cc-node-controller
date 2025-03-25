@@ -155,6 +155,13 @@ func real_main() int {
 	}
 	cc_node_control_hostname = hostname
 
+	err = sysfeatures.SysFeaturesInit()
+	if err != nil {
+		cclog.Errorf("SysFeaturesInit() failed: %v", err)
+		return 1
+	}
+	defer sysfeatures.SysFeaturesClose()
+
 	cli_opts := ReadCli()
 	if len(cli_opts["configfile"]) == 0 {
 		cli_opts["configfile"] = "./config.json"

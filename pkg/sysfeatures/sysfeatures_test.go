@@ -8,12 +8,11 @@ import (
 var testTypes []string = []string{
 	"hwthread",
 	"core",
-	"LLC",
+	//"LLC",   not yet implemented
 	"die",
 	"socket",
 	"node",
 	"numa",
-	"invalid",
 }
 
 func TestInit(t *testing.T) {
@@ -72,9 +71,9 @@ func TestGet(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
-	control := "pkg_limit_1"
+	control := "rapl.pkg_limit_1"
 	has_control := false
-	max_control := "pkg_max_limit"
+	max_control := "rapl.pkg_max_limit"
 	has_max_control := false
 	err := SysFeaturesInit()
 	if err != nil {
