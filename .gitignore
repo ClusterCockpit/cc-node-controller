@@ -12,6 +12,7 @@
 /cmd/knobclient/knobclient
 /cmd/remoteclient/remoteclient
 /cmd/topologyclient/topologyclient
+/cmd/server/server
 
 # Test binary, built with `go test -c`
 *.test
