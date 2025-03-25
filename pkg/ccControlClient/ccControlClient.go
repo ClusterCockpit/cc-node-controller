@@ -271,11 +271,11 @@ func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error
 	}
 	level, ok := m.GetTag("level")
 	if !ok {
-		return topo, fmt.Errorf("failed to get level")
+		return topo, fmt.Errorf("failed to get level from message: %s", m)
 	}
 	value, ok := m.GetField("value")
 	if !ok {
-		return topo, fmt.Errorf("failed to get value")
+		return topo, fmt.Errorf("failed to get value from message: %s", m)
 	}
 	fmt.Println(m.String())
 	if level == "INFO" {
