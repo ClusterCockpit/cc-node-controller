@@ -74,7 +74,6 @@ func NatsReceive(m *nats.Msg) []lp.CCMessage {
 }
 
 func (c *ccControlClient) Init(natsCfg NatsConfig) error {
-
 	h, err := os.Hostname()
 	if err != nil {
 		return errors.New("failed to get hostname for CCControlClient")
@@ -82,14 +81,11 @@ func (c *ccControlClient) Init(natsCfg NatsConfig) error {
 
 	c.natsCfg = natsCfg
 	c.hostname = h
-	c.conn = nil
-	return nil
+	return c.connect()
 }
 
 func (c *ccControlClient) Close() {
-	if c.conn != nil {
-		c.conn.Close()
-	}
+	c.conn.Close()
 }
 
 func (c *ccControlClient) connect() error {
@@ -130,12 +126,6 @@ func (c *ccControlClient) connect() error {
 func (c *ccControlClient) GetControls(hostname string) (CCControlList, error) {
 	var globerr error
 	var outlist CCControlList
-	if c.conn == nil {
-		err := c.connect()
-		if err != nil {
-			return outlist, err
-		}
-	}
 	tags := map[string]string{
 		"hostname": hostname,
 		"method":   "GET",
@@ -190,12 +180,6 @@ func (c *ccControlClient) GetControls(hostname string) (CCControlList, error) {
 func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error) {
 	var topo CCControlTopology
 	var err error
-	if c.conn == nil {
-		err := c.connect()
-		if err != nil {
-			return topo, err
-		}
-	}
 	tags := map[string]string{
 		"hostname": hostname,
 		"method":   "GET",
@@ -246,12 +230,6 @@ func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error
 func (c *ccControlClient) GetControlValue(hostname, control string, device string, deviceID string) (string, error) {
 	var outstring string
 	var globerr error
-	if c.conn == nil {
-		err := c.connect()
-		if err != nil {
-			return outstring, err
-		}
-	}
 	tags := map[string]string{
 		"hostname": hostname,
 		"method":   "GET",
@@ -308,12 +286,6 @@ func (c *ccControlClient) GetControlValue(hostname, control string, device strin
 
 func (c *ccControlClient) SetControlValue(hostname, control string, device string, deviceID string, value string) error {
 	var globerr error
-	if c.conn == nil {
-		err := c.connect()
-		if err != nil {
-			return err
-		}
-	}
 	tags := map[string]string{
 		"hostname": hostname,
 		"method":   "PUT",
