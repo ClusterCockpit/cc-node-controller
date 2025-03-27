@@ -123,31 +123,22 @@ func ReadCli() map[string]string {
 	return m
 }
 
-func LoadConfiguration(filename string) (NatsConfig, error) {
-	var c NatsConfig = NatsConfig{
-		Hostname:            "",
-		Port:                0,
-		InputSubjectPrefix:  "",
-		InputSubject:        "",
-		OutputSubjectPrefix: "",
-		OutputSubject:       "",
+func LoadNatsConfiguration(filename string) (NatsConfig, error) {
+	natsConfig := NatsConfig{
 		OutstandingMessages: 1000,
-		subject:             "",
-		outSubject:          "",
 	}
 	configFile, err := os.Open(filename)
 	if err != nil {
 		cclog.Error(err.Error())
-		return c, err
+		return natsConfig, err
 	}
 	defer configFile.Close()
 	jsonParser := json.NewDecoder(configFile)
-	err = jsonParser.Decode(&c)
-	return c, err
+	err = jsonParser.Decode(&natsConfig)
+	return natsConfig, err
 }
 
 func real_main() int {
-
 	hostname, err := os.Hostname()
 	if err != nil {
 		fmt.Println(err.Error())
@@ -173,33 +164,13 @@ func real_main() int {
 	// TODO this doesn't exist anymore either
 	//cclog.SetOutput(cli_opts["logfile"])
 
-	config, err := LoadConfiguration(cli_opts["configfile"])
+	config, err := LoadNatsConfiguration(cli_opts["configfile"])
 	if err != nil {
 		cclog.Error(err.Error())
 		return 1
 	}
-	if len(config.InputSubject) > 0 {
-		config.subject = config.InputSubject
-	} else {
-		if len(config.InputSubjectPrefix) > 0 {
-			config.subject = fmt.Sprintf("%s.%s", config.InputSubjectPrefix, hostname)
-		} else {
-			config.subject = hostname
-		}
-	}
-	cclog.ComponentDebug("CONFIG", "Using input subject", config.subject)
-	if len(config.OutputSubject) > 0 {
-		config.outSubject = config.OutputSubject
-	} else {
-		if len(config.OutputSubjectPrefix) > 0 {
-			config.outSubject = fmt.Sprintf("%s.%s", config.OutputSubjectPrefix, hostname)
-		} else {
-			config.outSubject = fmt.Sprintf("%s-out", hostname)
-		}
-	}
-	cclog.ComponentDebug("CONFIG", "Using output subject", config.outSubject)
-	if len(config.subject) == 0 || len(config.outSubject) == 0 {
-		cclog.ComponentError("CONFIG", "Failed to get input and output subject for NATS")
+	if len(config.RequestSubject) == 0 {
+		cclog.ComponentError("CONFIG", "Failed to request subject for NATS")
 		return 1
 	}
 	cclog.ComponentDebug("CONFIG", "Initializing sysfeatures")

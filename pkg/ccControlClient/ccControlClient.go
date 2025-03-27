@@ -46,14 +46,17 @@ type CCControlClient interface {
 }
 
 type NatsConfig struct {
-	Server        string `json:"server"`
-	Port          uint16 `json:"port"`
-	InputSubject  string `json:"inputSubject"`
-	OutputSubject string `json:"outputSubject"`
-	User          string `json:"user"`
-	Password      string `json:"password"`
-	CredsFile     string `json:"credsFile"`
-	NKeySeedFile  string `json:"nkeySeedFile"`
+	Server         string `json:"server"`
+	Port           uint16 `json:"port"`
+	RequestSubject string `json:"requestSubject"`
+	// TODO actually implement ReplySubject. Currently, we use NATS request/reply,
+	// which by default uses subject `_INBOX.XXXXXXXXX` as reply subject.
+	// However, this is difficult to restrict in terms of permissions.
+	//ReplySubject   string `json:"replySubject"`
+	User           string `json:"user"`
+	Password       string `json:"password"`
+	CredsFile      string `json:"credsFile"`
+	NKeySeedFile   string `json:"nkeySeedFile"`
 }
 
 func NewCCControlClient(natsConfig NatsConfig) (CCControlClient, error) {
@@ -138,15 +141,14 @@ func (c *ccControlClient) GetControls(hostname string) (CCControlList, error) {
 		return outlist, fmt.Errorf("failed to create control message to %s to get controls", hostname)
 	}
 
-	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.OutputSubject, ":", out.String())
-	//c.conn.Publish(c.natsCfg.OutputSubject, []byte(out.ToLineProtocol(map[string]bool{})))
-	resp, err := c.conn.Request(c.natsCfg.OutputSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
+	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.RequestSubject, ":", out.String())
+	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
 	if err != nil {
-		return outlist, fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.OutputSubject, err.Error())
+		return outlist, fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.RequestSubject, err.Error())
 	}
 	mlist := NatsReceive(resp)
 	if len(mlist) == 0 {
-		return outlist, fmt.Errorf("failed to receive response to subject %s", c.natsCfg.OutputSubject)
+		return outlist, fmt.Errorf("failed to receive response to subject %s", c.natsCfg.RequestSubject)
 	}
 	m := mlist[0]
 	if m.Name() == name {
@@ -192,15 +194,14 @@ func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error
 		return topo, fmt.Errorf("failed to create control message to %s to get controls", hostname)
 	}
 
-	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.OutputSubject, ":", out.String())
-	//c.conn.Publish(c.natsCfg.OutputSubject, []byte(out.ToLineProtocol(map[string]bool{})))
-	resp, err := c.conn.Request(c.natsCfg.OutputSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
+	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.RequestSubject, ":", out.String())
+	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
 	if err != nil {
-		return topo, fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.OutputSubject, err.Error())
+		return topo, fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.RequestSubject, err.Error())
 	}
 	mlist := NatsReceive(resp)
 	if len(mlist) == 0 {
-		return topo, fmt.Errorf("failed to receive response to subject %s", c.natsCfg.OutputSubject)
+		return topo, fmt.Errorf("failed to receive response to subject %s", c.natsCfg.RequestSubject)
 	}
 	m := mlist[0]
 	if m.Name() != name {
@@ -242,15 +243,15 @@ func (c *ccControlClient) GetControlValue(hostname, control string, device strin
 		return outstring, fmt.Errorf("failed to create control message to %s to get controls", hostname)
 	}
 
-	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.OutputSubject, ":", out.String())
-	//c.conn.Publish(c.natsCfg.OutputSubject, []byte(out.ToLineProtocol(map[string]bool{})))
-	resp, err := c.conn.Request(c.natsCfg.OutputSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
+	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.RequestSubject, ":", out.String())
+	//c.conn.Publish(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})))
+	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
 	if err != nil {
-		return outstring, fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.OutputSubject, err.Error())
+		return outstring, fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.RequestSubject, err.Error())
 	}
 	mlist := NatsReceive(resp)
 	if len(mlist) == 0 {
-		return outstring, fmt.Errorf("failed to receive response to subject %s", c.natsCfg.OutputSubject)
+		return outstring, fmt.Errorf("failed to receive response to subject %s", c.natsCfg.RequestSubject)
 	}
 	m := mlist[0]
 	if m.Name() == name {
@@ -298,15 +299,14 @@ func (c *ccControlClient) SetControlValue(hostname, control string, device strin
 		return fmt.Errorf("failed to create control message to %s to get controls", hostname)
 	}
 
-	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.OutputSubject, ":", out.String())
-	//c.conn.Publish(c.natsCfg.OutputSubject, []byte(out.ToLineProtocol(map[string]bool{})))
-	resp, err := c.conn.Request(c.natsCfg.OutputSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
+	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.RequestSubject, ":", out.String())
+	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
 	if err != nil {
-		return fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.OutputSubject, err.Error())
+		return fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.RequestSubject, err.Error())
 	}
 	mlist := NatsReceive(resp)
 	if len(mlist) == 0 {
-		return fmt.Errorf("failed to receive response to subject %s", c.natsCfg.OutputSubject)
+		return fmt.Errorf("failed to receive response to subject %s", c.natsCfg.RequestSubject)
 	}
 	m := mlist[0]
 	if m.Name() == name {

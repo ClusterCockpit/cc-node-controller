@@ -9,8 +9,7 @@ var (
 	natsConfig NatsConfig = NatsConfig{
 		Server: "127.0.0.1",
 		Port: 4222,
-		InputSubject: "cc-events",
-		OutputSubject: "cc-control",
+		RequestSubject: "cc-control",
 	}
 )
 

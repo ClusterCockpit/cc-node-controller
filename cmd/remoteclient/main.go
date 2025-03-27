@@ -19,8 +19,8 @@ func ReadCli() map[string]interface{} {
 	get := flag.String("get", "", "Get value of control from remote node (name@type-typeid)")
 	set := flag.String("set", "", "Set value of control from remote node (name@type-typeid=value)")
 	host := flag.String("host", "", "Hostname of remote node")
-	inputsub := flag.String("input", "cc-events", "Input subject from NATS")
-	outputsub := flag.String("output", "cc-control", "Output subject from NATS")
+	requestsub := flag.String("request-subject", "cc-control", "NATS Subject to subscribe for control requests")
+	//replysub := flag.String("reply-subject", "cc-control", "NATS Subject to send control replies to")
 
 	flag.Parse()
 	m := make(map[string]interface{})
@@ -29,8 +29,8 @@ func ReadCli() map[string]interface{} {
 	m["set"] = *set
 	m["port"] = *port
 	m["host"] = *host
-	m["input"] = *inputsub
-	m["output"] = *outputsub
+	m["request-subject"] = *requestsub
+	//m["reply-subject"] = *replysub
 	if *debug {
 		m["debug"] = true
 	} else {
@@ -57,8 +57,8 @@ func main() {
 	natsCfg := cccontrol.NatsConfig{
 		Server: cliopts["server"].(string),
 		Port: uint16(cliopts["port"].(int)),
-		InputSubject: cliopts["input"].(string),
-		OutputSubject: cliopts["output"].(string),
+		RequestSubject: cliopts["request-subject"].(string),
+		//ReplySubject: cliopts["reply-subject"].(string),
 	}
 
 	c, err := cccontrol.NewCCControlClient(natsCfg)
