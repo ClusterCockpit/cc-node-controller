@@ -103,23 +103,13 @@ func ProcessCommand(input lp.CCMessage) (lp.CCMessage, error) {
 func ReadCli() map[string]string {
 	var m map[string]string
 	cfg := flag.String("config", "./config.json", "Path to configuration file")
-	logfile := flag.String("log", "stderr", "Path for logfile")
-	debug := flag.Bool("debug", false, "Activate debug output")
+	loglevel := flag.String("loglevel", "warn", "Activate debug output")
 	pretend := flag.Bool("pretend", false, "Do not actually do anything")
 	flag.Parse()
 	m = make(map[string]string)
 	m["configfile"] = *cfg
-	m["logfile"] = *logfile
-	if *debug {
-		m["debug"] = "true"
-	} else {
-		m["debug"] = "false"
-	}
-	if *pretend {
-		m["pretend"] = "true"
-	} else {
-		m["pretend"] = "false"
-	}
+	m["loglevel"] = *loglevel
+	m["pretend"] = fmt.Sprintf("%v", *pretend)
 	return m
 }
 
@@ -157,12 +147,8 @@ func real_main() int {
 	if len(cli_opts["configfile"]) == 0 {
 		cli_opts["configfile"] = "./config.json"
 	}
-	if cli_opts["debug"] == "true" {
-		// TODO this no longer exists, cleanup
-		//cclog.SetDebug()
-	}
-	// TODO this doesn't exist anymore either
-	//cclog.SetOutput(cli_opts["logfile"])
+
+	cclog.Init(cli_opts["loglevel"], false)
 
 	config, err := LoadNatsConfiguration(cli_opts["configfile"])
 	if err != nil {
