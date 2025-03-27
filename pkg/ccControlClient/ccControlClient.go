@@ -1,8 +1,5 @@
 package cccontrolclient
 
-// TODO currently disfunctional, requires more debugging
-// -topology fails and outputs zeroes only
-
 import (
 	"encoding/json"
 	"errors"
@@ -131,9 +128,8 @@ func (c *ccControlClient) connect() error {
 }
 
 func (c *ccControlClient) GetControls(hostname string) (CCControlList, error) {
-	// var wg sync.WaitGroup
-	var globerr error = nil
-	var outlist CCControlList = CCControlList{}
+	var globerr error
+	var outlist CCControlList
 	if c.conn == nil {
 		err := c.connect()
 		if err != nil {
@@ -151,46 +147,6 @@ func (c *ccControlClient) GetControls(hostname string) (CCControlList, error) {
 	if err != nil {
 		return outlist, fmt.Errorf("failed to create control message to %s to get controls", hostname)
 	}
-
-	// mysubject := fmt.Sprintf("%s.%s", c.input_subject, hostname)
-
-	// _, err = c.conn.Subscribe(mysubject, func(msg *nats.Msg) {
-	// 	wg.Add(1)
-	// 	mlist := NatsReceive(msg)
-	// 	cclog.ComponentDebug("CCControlClient", mlist)
-	// metrics_loop:
-	// 	for _, m := range mlist {
-	// 		if m.Name() == name {
-	// 			if testhost, ok := m.GetTag("hostname"); ok {
-	// 				if testhost == hostname {
-	// 					if level, ok := m.GetTag("level"); ok {
-	// 						if value, ok := m.GetField("value"); ok {
-	// 							if level == "INFO" {
-	// 								switch x := value.(type) {
-	// 								case string:
-	// 									globerr = json.Unmarshal([]byte(x), &outlist)
-	// 								case []byte:
-	// 									globerr = json.Unmarshal(x, &outlist)
-	// 								}
-	// 							} else {
-	// 								cclog.ComponentError("CCControlClient", "Host", hostname, ":", value)
-	// 								switch x := value.(type) {
-	// 								case string:
-	// 									globerr = errors.New(x)
-	// 								case []byte:
-	// 									globerr = errors.New(string(x))
-	// 								}
-
-	// 							}
-	// 							break metrics_loop
-	// 						}
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// 	wg.Done()
-	// })
 
 	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.OutputSubject, ":", out.String())
 	//c.conn.Publish(c.natsCfg.OutputSubject, []byte(out.ToLineProtocol(map[string]bool{})))
@@ -232,7 +188,7 @@ func (c *ccControlClient) GetControls(hostname string) (CCControlList, error) {
 }
 
 func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error) {
-	var topo CCControlTopology = CCControlTopology{}
+	var topo CCControlTopology
 	var err error
 	if c.conn == nil {
 		err := c.connect()
@@ -288,9 +244,8 @@ func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error
 }
 
 func (c *ccControlClient) GetControlValue(hostname, control string, device string, deviceID string) (string, error) {
-	// var wg sync.WaitGroup
-	var outstring string = ""
-	var globerr error = nil
+	var outstring string
+	var globerr error
 	if c.conn == nil {
 		err := c.connect()
 		if err != nil {
@@ -352,7 +307,7 @@ func (c *ccControlClient) GetControlValue(hostname, control string, device strin
 }
 
 func (c *ccControlClient) SetControlValue(hostname, control string, device string, deviceID string, value string) error {
-	var globerr error = nil
+	var globerr error
 	if c.conn == nil {
 		err := c.connect()
 		if err != nil {
