@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	cclog "github.com/ClusterCockpit/cc-lib/ccLogger"
 	"github.com/nats-io/nats.go"
@@ -15,32 +14,37 @@ type NatsConnection struct {
 }
 
 type NatsConfig struct {
-	Hostname            string `json:"hostname"`
+	Server              string `json:"server"`
 	Port                int    `json:"port"`
-	Username            string `json:"username,omitempty"`
-	Password            string `json:"password,omitempty"`
-	NkeyFile            string `json:"nkey_file,omitempty"`
-	RequestSubject      string `json:"request_subject,omitempty"`
-	//ReplySubject      string `json:"reply_subject,omitempty"`
-	OutstandingMessages int    `json:"outstanding_messages_in_queue,omitempty"`
+	RequestSubject      string `json:"requestSubject"`
+	//ReplySubject      string `json:"replySubject"`
+	User                string `json:"user"`
+	Password            string `json:"password"`
+	CredsFile           string `json:"credsFile"`
+	NKeySeedFile        string `json:"nkeySeedFile"`
+	OutstandingMessages int    `json:"outstandingMessagesInQueue,omitempty"`
 }
 
 func ConnectNats(config NatsConfig) (*NatsConnection, error) {
-	var uinfo nats.Option = nil
-	if len(config.Username) > 0 && len(config.Password) > 0 {
-		uinfo = nats.UserInfo(config.Username, config.Password)
-	} else if len(config.NkeyFile) > 0 {
-		_, err := os.Stat(config.NkeyFile)
-		if err == nil {
-			uinfo = nats.UserCredentials(config.NkeyFile)
-		} else {
-			cclog.ComponentError("NATS", "NKEY file", config.NkeyFile, "does not exist: %v", err.Error())
-			return nil, err
-		}
+	options := make([]nats.Option, 0)
+	if len(config.Password) > 0 {
+		options = append(options, nats.UserInfo(config.User, config.Password))
 	}
-	uri := fmt.Sprintf("%s:%d", config.Hostname, config.Port)
+	if len(config.CredsFile) > 0 {
+		// TODO do we have to check for file existence here?
+		options = append(options, nats.UserCredentials(config.CredsFile))
+	}
+	if len(config.NKeySeedFile) > 0 {
+		r, err := nats.NkeyOptionFromSeed(config.NKeySeedFile)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to open NKeySeedFile: %w", err)
+		}
+		options = append(options, r)
+	}
+
+	uri := fmt.Sprintf("nats://%s:%d", config.Server, config.Port)
 	cclog.ComponentDebug("NATS", "connecting to", uri)
-	conn, err := nats.Connect(uri, uinfo)
+	conn, err := nats.Connect(uri, options...)
 	if err != nil {
 		return nil, err
 	}

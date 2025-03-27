@@ -1,6 +1,5 @@
 {
-    "hostname" : "127.0.0.1",
+    "server" : "127.0.0.1",
     "port" : 4222,
-    "input_subject" : "cc-control",
-    "output_subject" : "cc-events"
+    "requestSubject" : "cc-control"
 }
