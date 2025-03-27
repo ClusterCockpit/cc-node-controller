@@ -17,7 +17,7 @@ var (
 func TestGetControls(t *testing.T) {
 	c, err := NewCCControlClient(natsConfig)
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 	control, err := c.GetControls("nuc")
 	if err != nil {
@@ -37,7 +37,7 @@ func TestGetTopology(t *testing.T) {
 	target := "nuc"
 	c, err := NewCCControlClient(natsConfig)
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 	topo, err := c.GetTopology(target)
 	if err != nil {
@@ -59,7 +59,7 @@ func TestGetControlValue(t *testing.T) {
 
 	c, err := NewCCControlClient(natsConfig)
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 	value, err := c.GetControlValue(target, control, device, deviceID)
 	if err != nil {
@@ -80,7 +80,7 @@ func TestSetControlValue(t *testing.T) {
 
 	c, err := NewCCControlClient(natsConfig)
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer c.Close()
 	cur, err := c.GetControlValue(target, control, device, deviceID)
