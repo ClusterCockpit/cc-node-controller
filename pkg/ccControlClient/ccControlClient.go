@@ -38,8 +38,8 @@ type ccControlClient struct {
 
 type CCControlClient interface {
 	Init(natsCfg NatsConfig) error
-	GetControls(hostname string) (CCControlList, error)
-	GetTopology(hostname string) (CCControlTopology, error)
+	GetControls(hostname string) (*CCControlList, error)
+	GetTopology(hostname string) (*CCControlTopology, error)
 	GetControlValue(hostname, control string, device string, deviceID string) (string, error)
 	SetControlValue(hostname, control string, device string, deviceID string, value string) error
 	Close()
@@ -68,12 +68,12 @@ func NewCCControlClient(natsConfig NatsConfig) (CCControlClient, error) {
 	return n, nil
 }
 
-func NatsReceive(m *nats.Msg) []lp.CCMessage {
+func NatsReceive(m *nats.Msg) ([]lp.CCMessage, error) {
 	out, err := lp.FromBytes(m.Data)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("lp.FromBytes failed: %v", err)
 	}
-	return out
+	return out, nil
 }
 
 func (c *ccControlClient) Init(natsCfg NatsConfig) error {
@@ -126,206 +126,160 @@ func (c *ccControlClient) connect() error {
 	return nil
 }
 
-func (c *ccControlClient) GetControls(hostname string) (CCControlList, error) {
-	var globerr error
-	var outlist CCControlList
-	tags := map[string]string{
-		"hostname": hostname,
-		"method":   "GET",
-		"type":     "node",
-		"type-id":  "0",
-	}
-	name := "controls"
-	out, err := lp.NewGetControl(name, tags, map[string]string{}, time.Now())
+func (c *ccControlClient) sendRequestAndCheckReply(request lp.CCMessage) (value, level string, err error) {
+	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(request.ToLineProtocol(nil)), time.Second)
 	if err != nil {
-		return outlist, fmt.Errorf("failed to create control message to %s to get controls", hostname)
+		err = fmt.Errorf("failed to request to subject %s: %w", c.natsCfg.RequestSubject, err)
+		return
 	}
 
-	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.RequestSubject, ":", out.String())
-	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
+	replyList, err := NatsReceive(resp)
 	if err != nil {
-		return outlist, fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.RequestSubject, err.Error())
+		err = fmt.Errorf("NatsReceive failed: %w", err)
+		return
 	}
-	mlist := NatsReceive(resp)
-	if len(mlist) == 0 {
-		return outlist, fmt.Errorf("failed to receive response to subject %s", c.natsCfg.RequestSubject)
-	}
-	m := mlist[0]
-	if m.Name() == name {
-		if testhost, ok := m.GetTag("hostname"); ok && testhost == hostname {
-			if level, ok := m.GetTag("level"); ok {
-				if value, ok := m.GetField("value"); ok {
-					if level == "INFO" {
-						switch x := value.(type) {
-						case string:
-							globerr = json.Unmarshal([]byte(x), &outlist)
-						case []byte:
-							globerr = json.Unmarshal(x, &outlist)
-						}
-					} else {
-						cclog.ComponentError("CCControlClient", "Host", hostname, ":", value)
-						switch x := value.(type) {
-						case string:
-							globerr = errors.New(x)
-						case []byte:
-							globerr = errors.New(string(x))
-						}
 
-					}
-				}
-			}
-		}
+	if len(replyList) == 0 {
+		err = fmt.Errorf("Received reply with no CCMessage")
+		return
 	}
-	return outlist, globerr
+
+	if len(replyList) > 1 {
+		cclog.ComponentError("Received reply with more than one CCMessage:", replyList)
+	}
+
+	reply := replyList[0]
+	if reply.Name() != request.Name() {
+		err = fmt.Errorf("Received reply name '%s' mismatches expected 'controls': %v", reply.Name(), reply)
+		return
+	}
+
+	requestHostname, _ := request.GetTag("hostname")
+	replyHostname, ok := reply.GetTag("hostname")
+	if !ok {
+		err = fmt.Errorf("Received reply without hostname: %v", reply)
+		return
+	}
+	if replyHostname != requestHostname {
+		err = fmt.Errorf("Received reply hostname '%s' mismatches expected '%s': %v", replyHostname, requestHostname, reply)
+		return
+	}
+
+	level, ok = reply.GetTag("level")
+	if !ok {
+		err = fmt.Errorf("Received reply without tag 'level': %v", reply)
+		return
+	}
+
+	if !reply.IsLog() {
+		err = fmt.Errorf("Received reply is not of type log: %s", reply)
+		return
+	}
+
+	value = reply.GetLogValue()
+	return // value, level, nil
 }
 
-func (c *ccControlClient) GetTopology(hostname string) (CCControlTopology, error) {
-	var topo CCControlTopology
-	var err error
+func (c *ccControlClient) GetControls(hostname string) (*CCControlList, error) {
 	tags := map[string]string{
 		"hostname": hostname,
 		"method":   "GET",
 		"type":     "node",
 		"type-id":  "0",
 	}
-	name := "topology"
-	out, err := lp.NewGetControl(name, tags, map[string]string{}, time.Now())
+
+	request, err := lp.NewGetControl("controls", tags, nil, time.Now())
 	if err != nil {
-		return topo, fmt.Errorf("failed to create control message to %s to get controls", hostname)
+		return nil, fmt.Errorf("Failed to create control message to '%s' to get controls: %w", hostname, err)
 	}
 
-	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.RequestSubject, ":", out.String())
-	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
+	value, level, err := c.sendRequestAndCheckReply(request)
 	if err != nil {
-		return topo, fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.RequestSubject, err.Error())
+		return nil, fmt.Errorf("Request failed: %w", err)
 	}
-	mlist := NatsReceive(resp)
-	if len(mlist) == 0 {
-		return topo, fmt.Errorf("failed to receive response to subject %s", c.natsCfg.RequestSubject)
-	}
-	m := mlist[0]
-	if m.Name() != name {
-		return topo, fmt.Errorf("unexpected name received: %s (expected: %s)", m.Name(), name)
-	}
-	if testhost, ok := m.GetTag("hostname"); !ok || testhost != hostname {
-		return topo, fmt.Errorf("failed to retrieve hostname or mismatched hostname: %s (expected %s, success %v)", testhost, hostname, ok)
-	}
-	level, ok := m.GetTag("level")
-	if !ok {
-		return topo, fmt.Errorf("failed to get level from message: %s", m)
-	}
-	if !m.IsLog() {
-		return topo, fmt.Errorf("received message is not of type log: %s", m)
-	}
-	value := m.GetLogValue()
-	fmt.Println(m.String())
+
 	if level == "INFO" {
-		err = json.Unmarshal([]byte(value), &topo)
+		var outlist CCControlList
+		err := json.Unmarshal([]byte(value), &outlist)
+		return &outlist, err
 	} else {
-		cclog.ComponentError("CCControlClient", "Host", hostname, ":", value)
-		err = fmt.Errorf("Received error from cc-node-controller (host=%s): %s", hostname, value)
+		return nil, fmt.Errorf("Getting controls from host '%s' failed: %s", hostname, value)
 	}
-	return topo, err
+}
+
+func (c *ccControlClient) GetTopology(hostname string) (*CCControlTopology, error) {
+	tags := map[string]string{
+		"hostname": hostname,
+		"method":   "GET",
+		"type":     "node",
+		"type-id":  "0",
+	}
+
+	request, err := lp.NewGetControl("topology", tags, nil, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create control message to '%s' to get controls: %w", hostname, err)
+	}
+
+	value, level, err := c.sendRequestAndCheckReply(request)
+	if err != nil {
+		return nil, fmt.Errorf("Request failed: %w", err)
+	}
+
+	if level == "INFO" {
+		var topo CCControlTopology
+		err = json.Unmarshal([]byte(value), &topo)
+		return &topo, err
+	} else {
+		return nil, fmt.Errorf("Getting topology from host '%s' failed: %s", hostname, value)
+	}
 }
 
 func (c *ccControlClient) GetControlValue(hostname, control string, device string, deviceID string) (string, error) {
-	var outstring string
-	var globerr error
 	tags := map[string]string{
 		"hostname": hostname,
 		"method":   "GET",
 		"type":     device,
 		"type-id":  deviceID,
 	}
-	name := control
-	out, err := lp.NewGetControl(name, tags, map[string]string{}, time.Now())
+
+	request, err := lp.NewGetControl(control, tags, nil, time.Now())
 	if err != nil {
-		return outstring, fmt.Errorf("failed to create control message to %s to get controls", hostname)
+		return "", fmt.Errorf("Failed to create message to '%s' to get controls: %w", hostname, err)
 	}
 
-	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.RequestSubject, ":", out.String())
-	//c.conn.Publish(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})))
-	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
+	value, level, err := c.sendRequestAndCheckReply(request)
 	if err != nil {
-		return outstring, fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.RequestSubject, err.Error())
-	}
-	mlist := NatsReceive(resp)
-	if len(mlist) == 0 {
-		return outstring, fmt.Errorf("failed to receive response to subject %s", c.natsCfg.RequestSubject)
-	}
-	m := mlist[0]
-	if m.Name() == name {
-		if testhost, ok := m.GetTag("hostname"); ok && testhost == hostname {
-			if level, ok := m.GetTag("level"); ok {
-				if value, ok := m.GetField("value"); ok {
-					if level == "INFO" {
-						switch x := value.(type) {
-						case string:
-							outstring = x
-						case []byte:
-							outstring = string(x)
-						default:
-							outstring = fmt.Sprintf("%v", x)
-						}
-					} else {
-						cclog.ComponentError("CCControlClient", "Host", hostname, ":", value)
-						switch x := value.(type) {
-						case string:
-							globerr = errors.New(x)
-						case []byte:
-							globerr = errors.New(string(x))
-						}
-
-					}
-				}
-			}
-		}
+		return "", fmt.Errorf("Request failed: %w", err)
 	}
 
-	return outstring, globerr
+	if level == "INFO" {
+		return value, nil
+	} else {
+		return "", fmt.Errorf("Getting control '%s' from host '%s' failed: %s", control, hostname, value)
+	}
 }
 
 func (c *ccControlClient) SetControlValue(hostname, control string, device string, deviceID string, value string) error {
-	var globerr error
 	tags := map[string]string{
 		"hostname": hostname,
 		"method":   "PUT",
 		"type":     device,
 		"type-id":  deviceID,
 	}
-	name := control
-	out, err := lp.NewPutControl(name, tags, map[string]string{}, value, time.Now())
+
+	request, err := lp.NewPutControl(control, tags, nil, value, time.Now())
 	if err != nil {
-		return fmt.Errorf("failed to create control message to %s to get controls", hostname)
+		return fmt.Errorf("Failed to create control message to '%s' to set control: %w", hostname, err)
 	}
 
-	cclog.ComponentDebug("CCControlClient", "Publishing to", c.natsCfg.RequestSubject, ":", out.String())
-	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(out.ToLineProtocol(map[string]bool{})), time.Second)
+	value, level, err := c.sendRequestAndCheckReply(request)
 	if err != nil {
-		return fmt.Errorf("failed to request to subject %s: %v", c.natsCfg.RequestSubject, err.Error())
+		return fmt.Errorf("Request failed: %w", err)
 	}
-	mlist := NatsReceive(resp)
-	if len(mlist) == 0 {
-		return fmt.Errorf("failed to receive response to subject %s", c.natsCfg.RequestSubject)
-	}
-	m := mlist[0]
-	if m.Name() == name {
-		if testhost, ok := m.GetTag("hostname"); ok && testhost == hostname {
-			if level, ok := m.GetTag("level"); ok {
-				if value, ok := m.GetField("value"); ok {
-					if level == "ERROR" {
-						cclog.ComponentError("CCControlClient", "Host", hostname, ":", value)
-						switch x := value.(type) {
-						case string:
-							globerr = errors.New(x)
-						case []byte:
-							globerr = errors.New(string(x))
-						}
 
-					}
-				}
-			}
-		}
+	if level == "ERROR" {
+		return fmt.Errorf("Setting control '%s' from host '%s' to value '%s' failed: %s", control, hostname, value, value)
 	}
-	return globerr
+
+	return nil
 }
