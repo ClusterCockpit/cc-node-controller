@@ -7,8 +7,8 @@ import (
 
 var (
 	natsConfig NatsConfig = NatsConfig{
-		Server: "127.0.0.1",
-		Port: 4222,
+		Server:         "127.0.0.1",
+		Port:           4222,
 		RequestSubject: "cc-control",
 	}
 )

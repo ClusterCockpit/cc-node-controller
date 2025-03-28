@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	lp "github.com/ClusterCockpit/cc-lib/ccMessage"
 	cclog "github.com/ClusterCockpit/cc-lib/ccLogger"
+	lp "github.com/ClusterCockpit/cc-lib/ccMessage"
 	topo "github.com/ClusterCockpit/cc-node-controller/pkg/ccTopology"
 	"github.com/nats-io/nats.go"
 )
@@ -31,9 +31,9 @@ type CCControlTopology struct {
 }
 
 type ccControlClient struct {
-	conn           *nats.Conn
-	hostname       string
-	natsCfg        NatsConfig
+	conn     *nats.Conn
+	hostname string
+	natsCfg  NatsConfig
 }
 
 type CCControlClient interface {
@@ -53,10 +53,10 @@ type NatsConfig struct {
 	// which by default uses subject `_INBOX.XXXXXXXXX` as reply subject.
 	// However, this is difficult to restrict in terms of permissions.
 	//ReplySubject   string `json:"replySubject"`
-	User           string `json:"user"`
-	Password       string `json:"password"`
-	CredsFile      string `json:"credsFile"`
-	NKeySeedFile   string `json:"nkeySeedFile"`
+	User         string `json:"user"`
+	Password     string `json:"password"`
+	CredsFile    string `json:"credsFile"`
+	NKeySeedFile string `json:"nkeySeedFile"`
 }
 
 func NewCCControlClient(natsConfig NatsConfig) (CCControlClient, error) {
@@ -110,7 +110,7 @@ func (c *ccControlClient) connect() error {
 	if len(c.natsCfg.NKeySeedFile) > 0 {
 		r, err := nats.NkeyOptionFromSeed(c.natsCfg.NKeySeedFile)
 		if err != nil {
-			return fmt.Errorf("Unable to open NKeySeedFile: %w" ,err)
+			return fmt.Errorf("Unable to open NKeySeedFile: %w", err)
 		}
 		options = append(options, r)
 	}
