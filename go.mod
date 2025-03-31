@@ -5,8 +5,7 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
-	github.com/ClusterCockpit/cc-lib v0.1.0-beta.1
-	github.com/NVIDIA/go-nvml v0.12.0-2
+	github.com/ClusterCockpit/cc-lib v0.1.2-0.20250331121045-42a45a89020b
 	github.com/nats-io/nats.go v1.39.0
 	golang.org/x/exp v0.0.0-20250215185904-eff6e970281f
 )
@@ -25,7 +24,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.1 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/net v0.31.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
 )
