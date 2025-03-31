@@ -129,7 +129,7 @@ func (c *ccControlClient) connect() error {
 func (c *ccControlClient) sendRequestAndCheckReply(request lp.CCMessage) (value, level string, err error) {
 	resp, err := c.conn.Request(c.natsCfg.RequestSubject, []byte(request.ToLineProtocol(nil)), time.Second)
 	if err != nil {
-		err = fmt.Errorf("failed to request to subject %s: %w", c.natsCfg.RequestSubject, err)
+		err = fmt.Errorf("NATS Request on subject '%s' failed: %w", c.natsCfg.RequestSubject, err)
 		return
 	}
 
