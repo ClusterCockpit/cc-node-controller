@@ -58,7 +58,7 @@ func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
 		cclog.ComponentDebug("Sysfeatures", "Creating LIKWID device", deviceType, " ", deviceId)
 		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
-			return makeErrorReply(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
+			return makeErrorReply("Cannot create LIKWID device %s/%s", deviceType, deviceId)
 		}
 		defer sysfeatures.LikwidDeviceDestroy(dev)
 
@@ -66,7 +66,7 @@ func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
 		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", deviceType, " ", deviceId, "to", value)
 		err = sysfeatures.SysFeaturesSetByNameAndDevice(knob, dev, value)
 		if err != nil {
-			return makeErrorReply(fmt.Sprintf("Failed to set %s=%s for device %s/%s", knob, value, deviceType, deviceId))
+			return makeErrorReply("Failed to set %s=%s for device %s/%s", knob, value, deviceType, deviceId)
 		}
 
 		return makeReply("INFO", "Set '%s' for device '%s:%s': SUCCESS!", knob, deviceType, deviceId)
@@ -74,14 +74,14 @@ func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
 		cclog.ComponentDebug("Sysfeatures", "Creating LIKWID device", deviceType, " ", deviceId)
 		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
-			return makeErrorReply(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
+			return makeErrorReply("Cannot create LIKWID device %s/%s", deviceType, deviceId)
 		}
 		defer sysfeatures.LikwidDeviceDestroy(dev)
 
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", deviceType, " ", deviceId)
 		value, err := sysfeatures.SysFeaturesGetByNameAndDevice(knob, dev)
 		if err != nil {
-			return makeErrorReply(fmt.Sprintf("Failed to get %s for device %s/%s", knob, deviceType, deviceId))
+			return makeErrorReply("Failed to get %s for device %s/%s", knob, deviceType, deviceId)
 		}
 
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", deviceType, " ", deviceId, "returned", value)
