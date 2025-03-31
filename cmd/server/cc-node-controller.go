@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -19,84 +18,82 @@ import (
 
 var cc_node_control_hostname string = ""
 
-func FromLineProtocol(metric string) (lp.CCMessage, error) {
+func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
+	cclog.ComponentDebug("Sysfeatures", "Processing", request.ToLineProtocol(nil))
 
-	list, err := lp.FromBytes([]byte(metric))
-	if err != nil {
-		return nil, err
-	}
-	if len(list) != 1 {
-		return nil, errors.New("string contains mutliple metrics")
-	}
-	return list[0], nil
-}
-
-func ProcessPutGet(input lp.CCMessage) (lp.CCMessage, error) {
-	makeReply := func(errorString string) (lp.CCMessage, error) {
-		resp, err := lp.NewLog(input.Name(), input.Tags(), input.Meta(), errorString, time.Now())
-		if err == nil {
-			resp.AddTag("level", "ERROR")
-			return resp, nil
+	makeReply := func(level, fmtStr string, args ...any) (lp.CCMessage, error) {
+		logMsg := fmt.Sprintf(fmtStr, args...)
+		resp, err := lp.NewLog(request.Name(), request.Tags(), request.Meta(), logMsg, time.Now())
+		if err != nil {
+			return nil, fmt.Errorf("Unable to create log message: %w", err)
 		}
-		return nil, fmt.Errorf("%s and cannot send response", errorString)
+		resp.AddTag("level", level)
+		return resp, nil
+	}
+
+	makeErrorReply := func(fmtStr string, args ...any) (lp.CCMessage, error) {
+		return makeReply("ERROR", fmtStr, args...)
+	}
+
+	deviceType, ok := request.GetTag("type")
+	if !ok {
+		return makeErrorReply("No 'type' tag in request: %v", request)
 	}
 
 	var deviceId string
-	cclog.ComponentDebug("Sysfeatures", "Processing", input.ToLineProtocol(nil))
-	knob := input.Name()
-	deviceType, ok := input.GetTag("type")
-	if !ok {
-		return makeReply(fmt.Sprintf("No 'type' tag in %s", input.ToLineProtocol(nil)))
-	}
 	if deviceType != "node" {
 		var ok bool
-		deviceId, ok = input.GetTag("type-id")
+		deviceId, ok = request.GetTag("type-id")
 		if !ok {
-			return makeReply(fmt.Sprintf("No 'type-id' tag in %s", input.ToLineProtocol(nil)))
+			return makeErrorReply("No 'type-id' tag in request: %v", request)
 		}
 	}
-	method, ok := input.GetTag("method")
+	method, ok := request.GetTag("method")
 	if !ok {
-		return makeReply(fmt.Sprintf("No 'method' tag in %s", input.ToLineProtocol(nil)))
+		return makeErrorReply("No 'method' tag in: %v", request)
 	}
-	if method != "PUT" && method != "GET" {
-		return makeReply(fmt.Sprintf("Invalid 'method' tag in %s", input.ToLineProtocol(nil)))
-	}
+
+	knob := request.Name()
 	if method == "PUT" {
-		valueRaw, ok := input.GetField("value")
+		valueRaw, ok := request.GetField("value")
 		if !ok {
-			return makeReply(fmt.Sprintf("No 'value' field in %s", input.ToLineProtocol(nil)))
+			return makeErrorReply("No 'value' field in request: %v", request)
 		}
-		value := fmt.Sprintf("%v", valueRaw)
-		cclog.ComponentDebug("Sysfeatures", "Creating device", deviceType, " ", deviceId)
+
+		cclog.ComponentDebug("Sysfeatures", "Creating LIKWID device", deviceType, " ", deviceId)
 		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
-			return makeReply(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
+			return makeErrorReply(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
 		}
+		defer sysfeatures.LikwidDeviceDestroy(dev)
+
+		value := fmt.Sprintf("%v", valueRaw)
 		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", deviceType, " ", deviceId, "to", value)
 		err = sysfeatures.SysFeaturesSetByNameAndDevice(knob, dev, value)
 		if err != nil {
-			return makeReply(fmt.Sprintf("Failed to set %s=%s for device %s/%s", knob, value, deviceType, deviceId))
+			return makeErrorReply(fmt.Sprintf("Failed to set %s=%s for device %s/%s", knob, value, deviceType, deviceId))
 		}
+
+		return makeReply("INFO", "Set '%s' for device '%s:%s': SUCCESS!", knob, deviceType, deviceId)
 	} else if method == "GET" {
-		cclog.ComponentDebug("Sysfeatures", "Creating device", deviceType, " ", deviceId)
+		cclog.ComponentDebug("Sysfeatures", "Creating LIKWID device", deviceType, " ", deviceId)
 		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
-			return makeReply(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
+			return makeErrorReply(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
 		}
+		defer sysfeatures.LikwidDeviceDestroy(dev)
+
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", deviceType, " ", deviceId)
 		value, err := sysfeatures.SysFeaturesGetByNameAndDevice(knob, dev)
 		if err != nil {
-			return makeReply(fmt.Sprintf("Failed to get %s for device %s/%s", knob, deviceType, deviceId))
+			return makeErrorReply(fmt.Sprintf("Failed to get %s for device %s/%s", knob, deviceType, deviceId))
 		}
+
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", deviceType, " ", deviceId, "returned", value)
-		resp, err := makeReply(value)
-		if err == nil {
-			resp.AddTag("level", "INFO")
-		}
-		return resp, nil
+		return makeReply("INFO", "%s", value)
+	} else {
+		return makeReply("Invalid method tag '%s' in request: %v", method, request)
 	}
-	return makeReply(fmt.Sprintf("Invalid 'method' tag in %s", input.ToLineProtocol(nil)))
 }
 
 func ReadCli() map[string]string {
