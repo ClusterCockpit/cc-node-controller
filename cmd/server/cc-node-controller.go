@@ -31,9 +31,8 @@ func FromLineProtocol(metric string) (lp.CCMessage, error) {
 	return list[0], nil
 }
 
-func ProcessCommand(input lp.CCMessage) (lp.CCMessage, error) {
-
-	createOutput := func(errorString string) (lp.CCMessage, error) {
+func ProcessPutGet(input lp.CCMessage) (lp.CCMessage, error) {
+	makeReply := func(errorString string) (lp.CCMessage, error) {
 		resp, err := lp.NewLog(input.Name(), input.Tags(), input.Meta(), errorString, time.Now())
 		if err == nil {
 			resp.AddTag("level", "ERROR")
@@ -47,57 +46,57 @@ func ProcessCommand(input lp.CCMessage) (lp.CCMessage, error) {
 	knob := input.Name()
 	deviceType, ok := input.GetTag("type")
 	if !ok {
-		return createOutput(fmt.Sprintf("No 'type' tag in %s", input.ToLineProtocol(nil)))
+		return makeReply(fmt.Sprintf("No 'type' tag in %s", input.ToLineProtocol(nil)))
 	}
 	if deviceType != "node" {
 		var ok bool
 		deviceId, ok = input.GetTag("type-id")
 		if !ok {
-			return createOutput(fmt.Sprintf("No 'type-id' tag in %s", input.ToLineProtocol(nil)))
+			return makeReply(fmt.Sprintf("No 'type-id' tag in %s", input.ToLineProtocol(nil)))
 		}
 	}
 	method, ok := input.GetTag("method")
 	if !ok {
-		return createOutput(fmt.Sprintf("No 'method' tag in %s", input.ToLineProtocol(nil)))
+		return makeReply(fmt.Sprintf("No 'method' tag in %s", input.ToLineProtocol(nil)))
 	}
 	if method != "PUT" && method != "GET" {
-		return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input.ToLineProtocol(nil)))
+		return makeReply(fmt.Sprintf("Invalid 'method' tag in %s", input.ToLineProtocol(nil)))
 	}
 	if method == "PUT" {
 		valueRaw, ok := input.GetField("value")
 		if !ok {
-			return createOutput(fmt.Sprintf("No 'value' field in %s", input.ToLineProtocol(nil)))
+			return makeReply(fmt.Sprintf("No 'value' field in %s", input.ToLineProtocol(nil)))
 		}
 		value := fmt.Sprintf("%v", valueRaw)
 		cclog.ComponentDebug("Sysfeatures", "Creating device", deviceType, " ", deviceId)
 		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
+			return makeReply(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
 		}
 		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", deviceType, " ", deviceId, "to", value)
 		err = sysfeatures.SysFeaturesSetByNameAndDevice(knob, dev, value)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Failed to set %s=%s for device %s/%s", knob, value, deviceType, deviceId))
+			return makeReply(fmt.Sprintf("Failed to set %s=%s for device %s/%s", knob, value, deviceType, deviceId))
 		}
 	} else if method == "GET" {
 		cclog.ComponentDebug("Sysfeatures", "Creating device", deviceType, " ", deviceId)
 		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
+			return makeReply(fmt.Sprintf("Cannot create LIKWID device %s/%s", deviceType, deviceId))
 		}
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", deviceType, " ", deviceId)
 		value, err := sysfeatures.SysFeaturesGetByNameAndDevice(knob, dev)
 		if err != nil {
-			return createOutput(fmt.Sprintf("Failed to get %s for device %s/%s", knob, deviceType, deviceId))
+			return makeReply(fmt.Sprintf("Failed to get %s for device %s/%s", knob, deviceType, deviceId))
 		}
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", deviceType, " ", deviceId, "returned", value)
-		resp, err := createOutput(value)
+		resp, err := makeReply(value)
 		if err == nil {
 			resp.AddTag("level", "INFO")
 		}
 		return resp, nil
 	}
-	return createOutput(fmt.Sprintf("Invalid 'method' tag in %s", input.ToLineProtocol(nil)))
+	return makeReply(fmt.Sprintf("Invalid 'method' tag in %s", input.ToLineProtocol(nil)))
 }
 
 func ReadCli() map[string]string {
@@ -188,7 +187,6 @@ global_for:
 			cclog.ComponentDebug("LOOP", "got interrupt, exiting...")
 			break global_for
 		case msg := <-conn.ch:
-			//data := string(msg.Data)
 			data, err := lp.FromBytes(msg.Data)
 			if err == nil {
 				for _, m := range data {
@@ -217,7 +215,8 @@ global_for:
 								cclog.Error(err.Error())
 							}
 						default:
-							r, err = ProcessCommand(m)
+							// In this case, name corresponds to the control, that is to be read/written
+							r, err = ProcessPutGet(m)
 							if err != nil {
 								cclog.Error(err.Error())
 							}
