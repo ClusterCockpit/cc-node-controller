@@ -35,6 +35,10 @@ func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
 		return makeReply("ERROR", fmtStr, args...)
 	}
 
+	if !request.IsControl() {
+		return makeErrorReply("Received message is not a control message: %v", request)
+	}
+
 	deviceType, ok := request.GetTag("type")
 	if !ok {
 		return makeErrorReply("No 'type' tag in request: %v", request)
@@ -48,18 +52,9 @@ func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
 			return makeErrorReply("No 'type-id' tag in request: %v", request)
 		}
 	}
-	method, ok := request.GetTag("method")
-	if !ok {
-		return makeErrorReply("No 'method' tag in: %v", request)
-	}
 
 	knob := request.Name()
-	if method == "PUT" {
-		valueRaw, ok := request.GetField("value")
-		if !ok {
-			return makeErrorReply("No 'value' field in request: %v", request)
-		}
-
+	if method := request.GetControlMethod(); method == "PUT" {
 		cclog.ComponentDebug("Sysfeatures", "Creating LIKWID device", deviceType, " ", deviceId)
 		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
@@ -67,7 +62,7 @@ func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
 		}
 		defer sysfeatures.LikwidDeviceDestroy(dev)
 
-		value := fmt.Sprintf("%v", valueRaw)
+		value := request.GetControlValue()
 		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", deviceType, " ", deviceId, "to", value)
 		err = sysfeatures.SysFeaturesSetByNameAndDevice(knob, dev, value)
 		if err != nil {
@@ -92,7 +87,7 @@ func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
 		cclog.ComponentDebug("Sysfeatures", "Get", knob, "for device", deviceType, " ", deviceId, "returned", value)
 		return makeReply("INFO", "%s", value)
 	} else {
-		return makeReply("Invalid method tag '%s' in request: %v", method, request)
+		return makeReply("Invalid method '%s' in control request: %v", method, request)
 	}
 }
 
