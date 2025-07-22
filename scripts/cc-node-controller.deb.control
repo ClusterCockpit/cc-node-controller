@@ -1,0 +1,13 @@
+Package: cc-node-controller
+Section: misc
+Priority: optional
+Version: {VERSION}
+Installed-Size: {INSTALLED_SIZE}
+Architecture: {ARCH}
+Maintainer: thomas.gruber@fau.de, michael.panzlaff@fau.de
+Depends: libc6 (>= 2.2.1)
+Build-Depends: debhelper-compat (= 13), git, golang-go
+Description: Node controller daemon for ClusterCockpit
+Homepage: https://github.com/ClusterCockpit/cc-node-controller
+Source: cc-node-controller
+Rules-Requires-Root: no

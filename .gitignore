@@ -25,3 +25,7 @@
 
 # Go workspace file
 go.work
+
+# Package files
+/.dpkgbuild
+*.deb
