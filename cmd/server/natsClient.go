@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	cclog "github.com/ClusterCockpit/cc-lib/ccLogger"
+	cclog "github.com/ClusterCockpit/cc-lib/v2/ccLogger"
 	"github.com/nats-io/nats.go"
 )
 

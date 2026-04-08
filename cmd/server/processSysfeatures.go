@@ -7,8 +7,8 @@ import (
 
 	"github.com/ClusterCockpit/cc-node-controller/pkg/sysfeatures"
 
-	lp "github.com/ClusterCockpit/cc-lib/ccMessage"
-	cclog "github.com/ClusterCockpit/cc-lib/ccLogger"
+	lp "github.com/ClusterCockpit/cc-lib/v2/ccMessage"
+	cclog "github.com/ClusterCockpit/cc-lib/v2/ccLogger"
 )
 
 func ProcessSysfeatures(input lp.CCMessage) (lp.CCMessage, error) {

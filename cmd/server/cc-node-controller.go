@@ -11,8 +11,8 @@ import (
 
 	"github.com/ClusterCockpit/cc-node-controller/pkg/sysfeatures"
 
-	lp "github.com/ClusterCockpit/cc-lib/ccMessage"
-	cclog "github.com/ClusterCockpit/cc-lib/ccLogger"
+	lp "github.com/ClusterCockpit/cc-lib/v2/ccMessage"
+	cclog "github.com/ClusterCockpit/cc-lib/v2/ccLogger"
 	// MIT license
 )
 
@@ -54,7 +54,7 @@ func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
 	}
 
 	knob := request.Name()
-	if method := request.GetControlMethod(); method == "PUT" {
+	if method, _ := request.GetControlMethod(); method == "PUT" {
 		cclog.ComponentDebug("Sysfeatures", "Creating LIKWID device", deviceType, " ", deviceId)
 		dev, err := sysfeatures.LikwidDeviceCreateByTypeName(deviceType, deviceId)
 		if err != nil {
@@ -62,7 +62,8 @@ func ProcessPutGet(request lp.CCMessage) (lp.CCMessage, error) {
 		}
 		defer sysfeatures.LikwidDeviceDestroy(dev)
 
-		value := request.GetControlValue()
+		value, _ := request.GetControlValue()
+
 		cclog.ComponentDebug("Sysfeatures", "Set", knob, "for device", deviceType, " ", deviceId, "to", value)
 		err = sysfeatures.SysFeaturesSetByNameAndDevice(knob, dev, value)
 		if err != nil {
