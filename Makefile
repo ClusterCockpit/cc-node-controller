@@ -13,9 +13,12 @@ likwid:
 	cd likwid && sudo make PREFIX=/tmp/likwid-install BUILD_SYSFEATURES=true install
 	echo "export LD_LIBRARY_PATH=/tmp/likwid-install/lib:$$LD_LIBRARY_PATH"
 
-.PHONY: clean DEB
+.PHONY: clean DEB RPM
 clean:
 	rm --force cc-node-controller
 
 DEB:
 	./scripts/makedeb.sh
+
+RPM:
+	./scripts/makerpm.sh
