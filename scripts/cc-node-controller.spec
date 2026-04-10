@@ -1,7 +1,7 @@
 Name:           cc-node-controller
 Version:        %{VERS}
 Release:        1%{?dist}
-Summary:        Note controller daemon from the ClusterCockpit suite
+Summary:        Node controller daemon from the ClusterCockpit suite
 
 License:        MIT
 Source0:        %{name}-%{version}.tar.gz
