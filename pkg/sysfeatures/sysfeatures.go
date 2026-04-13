@@ -34,8 +34,8 @@ typedef struct {
     char* category;
     char* description;
     LikwidDeviceType type;
-    unsigned int readonly:1;
-    unsigned int writeonly:1;
+    unsigned int readonly;
+    unsigned int writeonly;
 } LikwidSysFeature;
 
 typedef struct {
@@ -130,9 +130,15 @@ static bool cgo_lw_init(void) {
 	// If you run into the error below: After checking that the API is still correct,
 	// you can bump the version number to get rid of this warning.
 	const int requiredMajor = 5;
-	const int requiredMinor = 4;
-	if (major != requiredMajor || minor != requiredMinor) {
-		fprintf(stderr, "[WARN] Found LIKWID %d.%d.X, but only %d.%d.X is supported. "
+	const int requiredMinor = 5;
+	if (major < requiredMajor || (major == requiredMajor && minor < requiredMinor)) {
+		fprintf(stderr, "[WARN] Found LIKWID %d.%d.X, but minimum %d.%d.X is required. "
+			"Please install a more recent LIKWID.\n",
+			major, minor,
+			requiredMajor, requiredMinor);
+		return false;
+	} else if (major != requiredMajor || minor != requiredMinor) {
+		fprintf(stderr, "[WARN] Found LIKWID %d.%d.X, but only %d.%d.X is known to work. "
 			"Malfunction may occur.\n",
 			major, minor,
 			requiredMajor, requiredMinor);
@@ -164,10 +170,6 @@ static bool cgo_lw_init(void) {
 
 	return true;
 }
-
-// TODO remove those two helper functions in the new LIKWID release > 5.4.X, when there are no more bitfields
-static int getReadOnly(LikwidSysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].readonly : 0); }
-static int getWriteOnly(LikwidSysFeatureList p, int idx) { return (idx > 0 && idx < p.num_features ? p.features[idx].writeonly : 0); }
 */
 import "C"
 import (
@@ -248,25 +250,15 @@ func SysFeaturesList() ([]SysFeature, error) {
 	retval := make([]SysFeature, 0)
 
 	features := unsafe.Slice(sysftList.features, sysftList.num_features)
-	for ftIndex, feature := range features {
-		readOnly := false
-		if int(C.getReadOnly(sysftList, C.int(ftIndex))) == 1 {
-			readOnly = true
-		}
-
-		writeOnly := false
-		if int(C.getWriteOnly(sysftList, C.int(ftIndex))) == 1 {
-			writeOnly = true
-		}
-
+	for _, feature := range features {
 		sf := SysFeature{
 			Name:        C.GoString(feature.name),
 			Category:    C.GoString(feature.category),
 			DevType:     LikwidDeviceType(feature._type),
 			DevTypeName: C.GoString(C.likwid_device_type_name(feature._type)),
 			Description: C.GoString(feature.description),
-			ReadOnly:    readOnly,
-			WriteOnly:   writeOnly,
+			ReadOnly:    feature.readonly != 0,
+			WriteOnly:   feature.writeonly != 0,
 		}
 
 		retval = append(retval, sf)
