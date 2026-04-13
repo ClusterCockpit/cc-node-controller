@@ -29,7 +29,7 @@ make
 
 
 %install
-install -Dpm 0750 %{name} %{buildroot}%{_bindir}/%{name}
+install -Dpm 0755 %{name} %{buildroot}%{_bindir}/%{name}
 install -Dpm 0600 config.json %{buildroot}%{_sysconfdir}/%{name}/%{name}.json
 
 
