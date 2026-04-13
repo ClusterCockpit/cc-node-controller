@@ -1,13 +1,9 @@
-
-SYSFEATURES_FILES = $(wildcard pkg/sysfeatures/*.go)
-SERVER_FILES = $(wildcard cmd/server/*.go)
-
+.PHONY: all cc-node-controller clean DEB RPM
 all: cc-node-controller
 
-cc-node-controller: $(SERVER_FILES) $(SYSFEATURES_FILES)
+cc-node-controller:
 	go build -o cc-node-controller ./cmd/server/
 
-.PHONY: clean DEB RPM
 clean:
 	rm --force cc-node-controller
 
