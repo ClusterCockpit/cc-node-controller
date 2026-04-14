@@ -50,7 +50,7 @@ func ConnectNats(config NatsConfig) (*NatsConnection, error) {
 	}
 
 	ch := make(chan *nats.Msg, config.OutstandingMessages)
-	cclog.ComponentDebug("NATS", "subscribing to", config.RequestSubject)
+	cclog.ComponentDebugf("NATS", "subscribing to %s", config.RequestSubject)
 	sub, err := conn.ChanSubscribe(config.RequestSubject, ch)
 	if err != nil {
 		return nil, err
