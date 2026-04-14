@@ -176,7 +176,7 @@ func (c *ccControlClient) sendRequestAndCheckReply(request lp.CCMessage) (value,
 		return
 	}
 
-	value = reply.GetLogValue()
+	value, _ = reply.GetLogValue()
 	return // value, level, nil
 }
 
