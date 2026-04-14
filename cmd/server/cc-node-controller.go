@@ -190,7 +190,7 @@ global_for:
 						break global_for
 					default:
 						if h, ok := m.GetTag("hostname"); ok && h != hostname {
-							cclog.ComponentDebug("LOOP", "Non-local command, skipping...")
+							cclog.ComponentDebugf("LOOP", "Non-local command (our hostname: %s, directed at: %s), skipping...", hostname, h)
 							continue
 						}
 						cclog.ComponentDebug("LOOP", "processing", m.String())
