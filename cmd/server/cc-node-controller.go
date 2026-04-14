@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -126,6 +127,9 @@ func real_main() int {
 		fmt.Println(err.Error())
 		return 1
 	}
+
+	// Truncate the hostname to the "short" hostname.
+	hostname = strings.SplitN(hostname, ".", 2)[0]
 	cc_node_control_hostname = hostname
 
 	err = sysfeatures.SysFeaturesInit()
